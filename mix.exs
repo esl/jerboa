@@ -8,7 +8,8 @@ defmodule Jerboa.Mixfile do
      elixir: "~> 1.4-rc",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps()]
+     deps: deps(),
+     docs: docs()]
   end
 
   def application do
@@ -17,6 +18,10 @@ defmodule Jerboa.Mixfile do
   end
 
   defp deps do
-    []
+    [{:ex_doc, "~> 0.14", runtime: false, only: :dev}]
+  end
+
+  defp docs do
+    [main: "Jerboa"]
   end
 end
