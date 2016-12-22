@@ -17,7 +17,7 @@ defmodule Jerboa.Mixfile do
 
   def application do
     [extra_applications: [:logger],
-     mod: {Jerboa.Application, []}]
+     mod: {Jerboa.Client.Application, []}]
   end
 
   defp deps do

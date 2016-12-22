@@ -1,4 +1,4 @@
-defmodule Jerboa.Application do
+defmodule Jerboa.Client.Application do
   @moduledoc false
 
   use Application
