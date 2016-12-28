@@ -25,7 +25,8 @@ defmodule Jerboa.Mixfile do
      {:credo, "~> 0.5", runtime: false, only: [:dev, :test]},
      {:dialyxir, "~> 0.4", runtime: false, only: :dev},
      {:excoveralls, "~> 0.5", runtime: false, only: :test},
-     {:inch_ex, "~> 0.5", runtime: false, only: :dev}]
+     {:inch_ex, "~> 0.5", runtime: false, only: :dev},
+     {:quixir, "~> 0.9", runtime: false, only: :test}]
   end
 
   defp docs do
