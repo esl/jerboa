@@ -19,7 +19,8 @@ defmodule Jerboa.Format.STUN.BareTest do
         bit_length = length * 8 - 2
         packet = <<first_two::2, content::size(bit_length)>>
 
-        assert {:error, "First two bits of STUN packet should be zeroed"} = Bare.decode packet
+        error_msg = "First two bits of STUN packet should be zeroed"
+        assert {:error, ^error_msg} = Bare.decode packet
       end
     end
 
@@ -91,7 +92,8 @@ defmodule Jerboa.Format.STUN.BareTest do
                      attr_value::size(attr_length)-unit(8)>>
         packet = create_packet(type, t_id, bin_attr)
 
-        assert {:error, "Not enough bytes for attribute value"} = Bare.decode packet
+        error_msg = "Not enough bytes for attribute value"
+        assert {:error, ^error_msg} = Bare.decode packet
       end
     end
 
@@ -126,7 +128,8 @@ defmodule Jerboa.Format.STUN.BareTest do
   end
 
   defp encode_attributes(attrs) do
-    Enum.map(attrs, fn {type, value} ->
+    attrs
+    |> Enum.map(fn {type, value} ->
       length = byte_size(value)
       pad_len = calculate_padding(length)
       <<type::16, length::16, value::binary, 0::size(pad_len)-unit(8)>>

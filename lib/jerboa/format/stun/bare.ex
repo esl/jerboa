@@ -77,12 +77,13 @@ defmodule Jerboa.Format.STUN.Bare do
   end
   defp validate_body_length(_), do: {:error, "Invalid message body length"}
 
+
   defp extract_attributes(body, acc \\ [])
   defp extract_attributes(<<>>, acc), do: {:ok, acc}
   defp extract_attributes(body, acc) do
     with {:ok, type, length, val_and_rest} <- extract_attr_type_and_length(body),
-                {:ok, value, pad_and_rest} <- extract_attr_value(length, val_and_rest),
-                               {:ok, rest} <- trim_padding(pad_and_rest, length) do
+         {:ok, value, pad_and_rest} <- extract_attr_value(length, val_and_rest),
+         {:ok, rest} <- trim_padding(pad_and_rest, length) do
       extract_attributes(rest, [{type, value} | acc])
     else
       {:error, _reason} = error ->
