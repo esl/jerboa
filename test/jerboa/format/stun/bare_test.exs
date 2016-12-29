@@ -111,6 +111,15 @@ defmodule Jerboa.Format.STUN.BareTest do
     end
   end
 
+  test "returns rest if given binary is too long" do
+    ptest type: int(min: 0), t_id: int(min: 0), extra: string(min: 1) do
+      packet = create_packet(type, t_id, <<>>)
+      packet = <<packet::binary, extra::binary>>
+
+      assert {:ok, _, ^extra} = Bare.decode packet
+    end
+  end
+
   ## Test helpers
 
   defp calculate_padding(length) do

@@ -17,7 +17,7 @@ defmodule Jerboa.Format.STUN.Bare do
        raw: binary
   }
 
-  @spec decode(packet :: binary) :: {:ok, t} | {:error, reason :: term}
+  @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary} | {:error, reason :: term}
   def decode(packet) do
     with {:ok, header} <- validate_header_length(packet),
                    :ok <- validate_first_two_bits(header),
@@ -35,12 +35,15 @@ defmodule Jerboa.Format.STUN.Bare do
         attrs: Enum.reverse(attrs),
         raw: packet
       }
-      {:ok, struct}
+      maybe_return_rest(struct, rest)
     else
       {:error, _reason} = error ->
         error
     end
   end
+
+  defp maybe_return_rest(struct, <<>>), do: {:ok, struct}
+  defp maybe_return_rest(struct, rest), do: {:ok, struct, rest}
 
   defp validate_header_length(<<header::20-binary, _rest::bitstring>>) do
     {:ok, header}
