@@ -9,7 +9,7 @@ defmodule Jerboa.Format.STUN.BareTest do
       ptest length: int(min: 0, max: 159), content: int(min: 0) do
         packet = <<content::size(length)>>
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "Invalid header length"} = Bare.decode packet
       end
     end
 
@@ -19,7 +19,7 @@ defmodule Jerboa.Format.STUN.BareTest do
         bit_length = length * 8 - 2
         packet = <<first_two::2, content::size(bit_length)>>
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "First two bits of STUN packet should be zeroed"} = Bare.decode packet
       end
     end
 
@@ -29,7 +29,7 @@ defmodule Jerboa.Format.STUN.BareTest do
         packet = <<0::2, before_magic::30, magic::32,
                    after_magic::unit(8)-size(length)>>
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "Invalid STUN magic cookie"} = Bare.decode packet
       end
     end
 
@@ -57,7 +57,7 @@ defmodule Jerboa.Format.STUN.BareTest do
         packet = <<0::2, type::14, length::16, magic::32, t_id::96,
                    body::unit(8)-size(body_length)>>
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "Invalid message body length"} = Bare.decode packet
       end
     end
 
@@ -80,7 +80,7 @@ defmodule Jerboa.Format.STUN.BareTest do
         bin_attrs = <<bin_attrs::binary, 1::size(extra)-unit(8)>>
         packet = create_packet(type, t_id, bin_attrs)
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "Not enough bytes for attribute"} = Bare.decode packet
       end
     end
 
@@ -91,7 +91,7 @@ defmodule Jerboa.Format.STUN.BareTest do
                      attr_value::size(attr_length)-unit(8)>>
         packet = create_packet(type, t_id, bin_attr)
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "Not enough bytes for attribute value"} = Bare.decode packet
       end
     end
 
@@ -104,7 +104,7 @@ defmodule Jerboa.Format.STUN.BareTest do
                      attr_value::size(attr_length)-unit(8)>>
         packet = create_packet(type, t_id, bin_attr)
 
-        assert {:error, _} = Bare.decode packet
+        assert {:error, "No attribute padding"} = Bare.decode packet
       end
     end
   end
