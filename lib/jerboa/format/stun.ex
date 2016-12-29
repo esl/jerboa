@@ -3,6 +3,13 @@ defmodule Jerboa.Format.STUN do
   Utility functions related to STUN messages
   """
 
+  @typedoc """
+  Represents class of STUN message
+
+  Note that `:error` here refers to STUN
+  error response class, it is not an indication
+  that this value is invalid.
+  """
   @type class :: :request
                | :indication
                | :success
@@ -18,6 +25,13 @@ defmodule Jerboa.Format.STUN do
 
   @doc """
   Converts integer to atom representing STUN class
+
+  ## Examples
+
+      iex> Jerboa.Format.STUN.class_from_integer(0)
+      :request
+      iex> Jerboa.Format.STUN.class_from_integer(3)
+      :error # this is a valid STUN class
   """
   @spec class_from_integer(integer_class) :: class
   def class_from_integer(0), do: :request
@@ -27,6 +41,13 @@ defmodule Jerboa.Format.STUN do
 
   @doc """
   Converts atom to integer representing STUN class
+
+  ## Examples
+
+      iex> Jerboa.Format.STUN.class_to_integer(:indication)
+      1
+      iex> Jerboa.Format.STUN.class_to_integer(:success)
+      2
   """
   @spec class_to_integer(class) :: integer_class
   def class_to_integer(:request), do: 0
