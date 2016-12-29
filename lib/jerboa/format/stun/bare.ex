@@ -22,12 +22,12 @@ defmodule Jerboa.Format.STUN.Bare do
     with {:ok, header} <- validate_header_length(packet),
                    :ok <- validate_first_two_bits(header),
                    :ok <- validate_stun_magic(header),
-                  t_id <- extract_transaction_id(header),
-                  type <- extract_stun_type(header),
-                 class <- decode_message_class(type),
-                method <- extract_message_method(type),
      {:ok, body, rest} <- validate_body_length(packet),
           {:ok, attrs} <- extract_attributes(body) do
+      t_id   = extract_transaction_id(header)
+      type   = extract_stun_type(header)
+      class  = decode_message_class(type)
+      method = extract_message_method(type)
       struct = %__MODULE__{
         t_id: t_id,
         class: class,
