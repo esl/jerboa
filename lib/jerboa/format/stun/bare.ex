@@ -135,4 +135,32 @@ defmodule Jerboa.Format.STUN.Bare do
       n -> 4 - n
     end
   end
+
+  @spec encode(t) :: packet :: binary()
+  def encode(bare) do
+    type = encode_stun_type(bare)
+    t_id = bare.t_id
+    attrs = pack_attributes(bare.attrs)
+    length = byte_size(attrs)
+    <<0::2, type::14, length::16, @stun_magic::32, t_id::96, attrs::binary>>
+  end
+
+  defp encode_stun_type(%{method: method, class: class}) do
+    int_class = STUN.class_to_integer class
+    <<c1::1, c0::1>> = <<int_class::2>>
+    <<m2::5, m1::3, m0::4>> = <<method::12>>
+    <<type::14>> = <<m2::5, c1::1, m1::3, c0::1, m0::4>>
+    type
+  end
+
+  defp pack_attributes(attrs) do
+    attrs
+    |> Enum.reduce(<<>>, &pack_attribute/2)
+  end
+
+  defp pack_attribute({type, value}, acc) do
+    length = byte_size(value)
+    pad_len = calculate_padding(length)
+    <<acc::binary, type::16, length::16, value::binary, 0::size(pad_len)-unit(8)>>
+  end
 end

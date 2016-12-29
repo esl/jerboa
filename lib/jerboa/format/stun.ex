@@ -24,4 +24,14 @@ defmodule Jerboa.Format.STUN do
   def class_from_integer(1), do: :indication
   def class_from_integer(2), do: :success
   def class_from_integer(3), do: :error
+
+  @doc """
+  Converts atom to integer representing STUN class
+  """
+  @spec class_to_integer(class) :: integer_class
+  def class_to_integer(:request), do: 0
+  def class_to_integer(:indication), do: 1
+  def class_to_integer(:success), do: 2
+  def class_to_integer(:error), do: 3
+
 end
