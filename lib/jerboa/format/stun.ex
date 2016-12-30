@@ -8,6 +8,10 @@ defmodule Jerboa.Format.STUN do
   @doc """
   Decodes given binary into `Jerboa.Format.STUN.Message`
 
+  If the given binary is longer than specified than in STUN header,
+  function returns three-element tuple, where last element is extra
+  part of binary.
+
   ## Examples
 
       iex> Jerboa.Format.STUN.decode <<0::159>>
@@ -15,15 +19,21 @@ defmodule Jerboa.Format.STUN do
       iex> Jerboa.Format.STUN.decode <<0::32, (554_869_826)::32, 0::96>>
       {:ok, %Jerboa.Format.STUN.Message{class: :request, t_id: 0}}
   """
-  @spec decode(packet :: binary) :: {:ok, Message.t} | {:error, DecodeError.t}
+  @spec decode(packet :: binary) :: {:ok, Message.t}
+                                  | {:ok, Message.t, rest :: binary}
+                                  | {:error, DecodeError.t}
   def decode(packet) do
-    case Bare.decode(packet) do
-      {:ok, bare} ->
-        Message.from_bare(bare)
+    with {:ok, bare, rest} <- Bare.decode(packet),
+         {:ok, message}    <- Message.from_bare(bare) do
+      maybe_with_rest(message, rest)
+    else
       {:error, _reason} = error ->
         error
     end
   end
+
+  defp maybe_with_rest(message, <<>>), do: {:ok, message}
+  defp maybe_with_rest(message, rest), do: {:ok, message, rest}
 
   @doc """
   Returns value of STUN magic cookie
