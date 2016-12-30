@@ -13,7 +13,7 @@ defmodule Jerboa.Format.STUN.Bare do
   @type t :: %__MODULE__{
       t_id: non_neg_integer,
      class: STUN.Class.t,
-    method: non_neg_integer,
+    method: STUN.Method.code,
      attrs: [bare_attr],
        raw: binary
   }
