@@ -12,7 +12,7 @@ defmodule Jerboa.Format.STUN.Bare do
 
   @type t :: %__MODULE__{
       t_id: non_neg_integer,
-     class: STUN.class,
+     class: STUN.Class.t,
     method: non_neg_integer,
      attrs: [bare_attr],
        raw: binary
@@ -76,7 +76,7 @@ defmodule Jerboa.Format.STUN.Bare do
 
   defp decode_message_class(<<_::5, c1::1, _::3, c0::1, _::4>>) do
     <<class::2>> = <<c1::1, c0::1>>
-    STUN.class_from_integer(class)
+    STUN.Class.from_integer(class)
   end
 
   defp extract_message_method(<<m2::5, _::1, m1::3, _::1, m0::4>>) do
@@ -147,7 +147,7 @@ defmodule Jerboa.Format.STUN.Bare do
   end
 
   defp encode_stun_type(%{method: method, class: class}) do
-    int_class = STUN.class_to_integer class
+    int_class = STUN.Class.to_integer class
     <<c1::1, c0::1>> = <<int_class::2>>
     <<m2::5, m1::3, m0::4>> = <<method::12>>
     <<type::14>> = <<m2::5, c1::1, m1::3, c0::1, m0::4>>

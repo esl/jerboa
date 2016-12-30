@@ -46,7 +46,7 @@ defmodule Jerboa.Format.STUN.BareTest do
                    magic::32, t_id::96>>
 
         {:ok, bare} = Bare.decode packet
-        decoded_class = Jerboa.Format.STUN.class_from_integer(class)
+        decoded_class = Jerboa.Format.STUN.Class.from_integer(class)
 
         assert method == bare.method
         assert decoded_class == bare.class
