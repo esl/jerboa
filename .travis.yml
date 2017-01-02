@@ -31,4 +31,6 @@ cache:
   directories:
       - .dialyzer
 
-
+branches:
+  only:
+    - master
