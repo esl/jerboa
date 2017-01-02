@@ -16,11 +16,16 @@ after_script:
 elixir:
   - 1.4.0-rc.1
 otp_release:
-  - 18.3
   - 19.2
+  - 18.3
 env:
   - PRESET=test
-  - PRESET=dialyzer
+
+matrix:
+  include:
+    - otp_release: 19.2
+      elixir: 1.4.0-rc.1
+      env: PRESET=dialyzer
 
 cache:
   directories:
