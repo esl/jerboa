@@ -19,9 +19,7 @@ defmodule Jerboa.Format.STUN.Bare do
 
   @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary} | {:error, reason :: term}
   def decode(packet) do
-    with {:ok, header} <- validate_header_length(packet),
-                   :ok <- validate_first_two_bits(header),
-                   :ok <- validate_stun_magic(header),
+    with {:ok, header} <- validate_header(packet),
      {:ok, body, rest} <- validate_body_length(packet),
           {:ok, attrs} <- extract_attributes(body) do
       t_id   = extract_transaction_id(header)
@@ -44,6 +42,17 @@ defmodule Jerboa.Format.STUN.Bare do
 
   defp maybe_return_rest(struct, <<>>), do: {:ok, struct}
   defp maybe_return_rest(struct, rest), do: {:ok, struct, rest}
+
+  defp validate_header(packet) do
+    with {:ok, header} <- validate_header_length(packet),
+                   :ok <- validate_first_two_bits(header),
+                   :ok <- validate_stun_magic(header) do
+      {:ok, header}
+    else
+      {:error, _reason} = error ->
+        error
+    end
+  end
 
   defp validate_header_length(<<header::20-binary, _rest::bitstring>>) do
     {:ok, header}
