@@ -18,8 +18,14 @@ defmodule Jerboa.Format.STUN do
 
       iex> Jerboa.Format.STUN.decode <<0::159>>
       {:error, %Jerboa.Format.STUN.DecodeError{format: "Invalid header length"}}
-      iex> Jerboa.Format.STUN.decode <<0::32, (554_869_826)::32, 0::96>>
-      {:ok, %Jerboa.Format.STUN.Message{class: :request, t_id: 0}}
+      iex> Jerboa.Format.STUN.decode <<1::16, 0::16, (554_869_826)::32, 0::96>>
+      {:ok, %Jerboa.Format.STUN.Message{class: :request, t_id: 0, method: :binding}}
+      iex> Jerboa.Format.STUN.decode <<1::16, 0::16, (554_869_826)::32, 0::96, 128::20>>
+      {:ok,
+       %Jerboa.Format.STUN.Message{class: :request, method: :binding, t_id: 0},
+       <<128::20>>}
+      iex> Jerboa.Format.STUN.decode <<2::16, 0::16, (554_869_826)::32, 0::96>>
+      {:error, %Jerboa.Format.STUN.DecodeError{method: "is unknown"}}
   """
   @spec decode(packet :: binary) :: {:ok, Message.t}
                                   | {:ok, Message.t, rest :: binary}

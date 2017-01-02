@@ -37,4 +37,26 @@ defmodule Jerboa.Format.STUN.Method do
     @doc false
     @callback classes :: [Class.t, ...]
   end
+
+  @doc false
+  @spec decode(name_or_code :: name | code) :: name | nil
+  def decode(name_or_code)
+
+  @doc false
+  @spec class_allowed?(name, class :: Class.t) :: boolean
+  def class_allowed?(name, class)
+
+  for method <- @methods do
+    name = method.name
+    code = method.code
+    classes = method.classes
+
+    def decode(unquote(code)), do: unquote(name)
+    def decode(unquote(name)), do: unquote(name)
+
+    def class_allowed?(unquote(name), class) when class in unquote(classes), do: true
+  end
+
+  def decode(_), do: nil
+  def class_allowed?(_, _), do: false
 end
