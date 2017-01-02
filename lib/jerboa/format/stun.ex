@@ -8,6 +8,8 @@ defmodule Jerboa.Format.STUN do
   @doc """
   Decodes given binary into `Jerboa.Format.STUN.Message`
 
+  For the list of supported STUN methods see `Jerboa.Format.STUN.Method`
+
   If the given binary is longer than specified than in STUN header,
   function returns three-element tuple, where last element is extra
   part of binary.

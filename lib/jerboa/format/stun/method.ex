@@ -1,6 +1,9 @@
 defmodule Jerboa.Format.STUN.Method do
   @moduledoc """
-  Encoders and decoder of STUN protocol methods
+  Encoder and decoder of STUN protocol methods
+
+  Currently supported methods are:
+  * Binding - `Jerboa.Format.STUN.Method.Binding`
   """
 
   alias Jerboa.Format.STUN.Class
@@ -15,16 +18,23 @@ defmodule Jerboa.Format.STUN.Method do
   """
   @type code :: non_neg_integer
 
+  @methods [__MODULE__.Binding]
 
-  # Returns name of a method
-  @doc false
-  @callback name() :: name
+  defmodule Behaviour do
+    @moduledoc false
 
-  # Returns code of a method
-  @doc false
-  @callback code() :: code
+    alias Jerboa.Format.STUN.Method
 
-  # Returns list of classes compatible with a method
-  @doc false
-  @callback classes :: [Class.t, ...]
+    # Returns name of a method
+    @doc false
+    @callback name() :: Method.name
+
+    # Returns code of a method
+    @doc false
+    @callback code() :: Method.code
+
+    # Returns list of classes compatible with a method
+    @doc false
+    @callback classes :: [Class.t, ...]
+  end
 end
