@@ -2,6 +2,7 @@ defmodule Jerboa.Format.STUN.Bare do
   @moduledoc false
 
   alias Jerboa.Format.STUN
+  alias STUN.DecodeError
 
   defstruct [:t_id, :class, :method, attrs: [], raw: <<>>]
 
@@ -17,7 +18,7 @@ defmodule Jerboa.Format.STUN.Bare do
        raw: binary
   }
 
-  @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary} | {:error, reason :: term}
+  @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary} | {:error, DecodeError.t}
   def decode(packet) do
     with {:ok, header} <- validate_header(packet),
      {:ok, body, rest} <- validate_body_length(packet),
@@ -35,8 +36,8 @@ defmodule Jerboa.Format.STUN.Bare do
       }
       maybe_return_rest(struct, rest)
     else
-      {:error, _reason} = error ->
-        error
+      {:error, reason} ->
+        {:error, %DecodeError{format: reason}}
     end
   end
 
