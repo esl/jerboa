@@ -4,6 +4,7 @@ defmodule Jerboa.Format.STUN.Method do
 
   Currently supported methods are:
   * Binding - `Jerboa.Format.STUN.Method.Binding`
+  * Allocate - `Jerboa.Format.STUN.Method.Allocate`
   """
 
   alias Jerboa.Format.STUN.Class
@@ -18,7 +19,7 @@ defmodule Jerboa.Format.STUN.Method do
   """
   @type code :: non_neg_integer
 
-  @methods [__MODULE__.Binding]
+  @methods [__MODULE__.Binding, __MODULE__.Allocate]
 
   defmodule Behaviour do
     @moduledoc false
