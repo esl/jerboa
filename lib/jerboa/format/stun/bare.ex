@@ -12,13 +12,15 @@ defmodule Jerboa.Format.STUN.Bare do
 
   @type t :: %__MODULE__{
       t_id: non_neg_integer,
-     class: STUN.class,
-    method: non_neg_integer,
+     class: STUN.Class.t,
+    method: STUN.Method.code,
      attrs: [bare_attr],
        raw: binary
   }
 
-  @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary} | {:error, DecodeError.t}
+
+  @spec decode(packet :: binary) :: {:ok, t} | {:ok, t, binary}
+                                  | {:error, DecodeError.t}
   def decode(packet) do
     with {:ok, header} <- validate_header(packet),
      {:ok, body, rest} <- validate_body_length(packet),
@@ -34,15 +36,12 @@ defmodule Jerboa.Format.STUN.Bare do
         attrs: Enum.reverse(attrs),
         raw: packet
       }
-      maybe_return_rest(struct, rest)
+      {:ok, struct, rest}
     else
       {:error, reason} ->
         {:error, %DecodeError{format: reason}}
     end
   end
-
-  defp maybe_return_rest(struct, <<>>), do: {:ok, struct}
-  defp maybe_return_rest(struct, rest), do: {:ok, struct, rest}
 
   defp validate_header(packet) do
     with {:ok, header} <- validate_header_length(packet),
@@ -76,7 +75,7 @@ defmodule Jerboa.Format.STUN.Bare do
 
   defp decode_message_class(<<_::5, c1::1, _::3, c0::1, _::4>>) do
     <<class::2>> = <<c1::1, c0::1>>
-    STUN.class_from_integer(class)
+    STUN.Class.from_integer(class)
   end
 
   defp extract_message_method(<<m2::5, _::1, m1::3, _::1, m0::4>>) do
@@ -147,7 +146,7 @@ defmodule Jerboa.Format.STUN.Bare do
   end
 
   defp encode_stun_type(%{method: method, class: class}) do
-    int_class = STUN.class_to_integer class
+    int_class = STUN.Class.to_integer class
     <<c1::1, c0::1>> = <<int_class::2>>
     <<m2::5, m1::3, m0::4>> = <<method::12>>
     <<type::14>> = <<m2::5, c1::1, m1::3, c0::1, m0::4>>

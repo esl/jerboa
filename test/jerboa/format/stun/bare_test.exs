@@ -45,8 +45,8 @@ defmodule Jerboa.Format.STUN.BareTest do
         packet = <<0::2, m2::5, c1::1, m1::3, c0::1, m0::4, 0::16,
                    magic::32, t_id::96>>
 
-        {:ok, bare} = Bare.decode packet
-        decoded_class = Jerboa.Format.STUN.class_from_integer(class)
+        {:ok, bare, _rest} = Bare.decode packet
+        decoded_class = Jerboa.Format.STUN.Class.from_integer(class)
 
         assert method == bare.method
         assert decoded_class == bare.class
@@ -71,7 +71,7 @@ defmodule Jerboa.Format.STUN.BareTest do
         bin_attrs = encode_attributes(attrs)
         packet = create_packet(type, t_id, bin_attrs)
 
-        {:ok, bare} = Bare.decode packet
+        {:ok, bare, _rest} = Bare.decode packet
 
         assert attrs == bare.attrs
       end
@@ -132,7 +132,7 @@ defmodule Jerboa.Format.STUN.BareTest do
       bare = %Bare{class: class, method: method, t_id: t_id, attrs: attrs}
 
       packet = Bare.encode bare
-      {:ok, decoded_bare} = Bare.decode packet
+      {:ok, decoded_bare, _rest} = Bare.decode packet
 
       assert bare.method == decoded_bare.method
       assert bare.class == decoded_bare.class
