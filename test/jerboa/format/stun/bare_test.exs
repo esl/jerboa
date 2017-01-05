@@ -109,14 +109,31 @@ defmodule Jerboa.Format.STUN.BareTest do
         assert {:error, "No attribute padding"} = Bare.decode packet
       end
     end
+
+    test "returns rest if given binary is too long" do
+      ptest type: int(min: 0), t_id: int(min: 0), extra: string(min: 1) do
+        packet = create_packet(type, t_id, <<>>)
+        packet = <<packet::binary, extra::binary>>
+
+        assert {:ok, _, ^extra} = Bare.decode packet
+      end
+    end
   end
 
-  test "returns rest if given binary is too long" do
-    ptest type: int(min: 0), t_id: int(min: 0), extra: string(min: 1) do
-      packet = create_packet(type, t_id, <<>>)
-      packet = <<packet::binary, extra::binary>>
+  test "encode/1 works as inverse of decode/1" do
+    ptest method: int(min: 0), t_id: int(min: 0),
+      attrs: list(of: tuple(like: {int(min: 0), string()})) do
+      class = Enum.random [:request, :indication, :success, :error]
+      bare = %Bare{class: class, method: method, t_id: t_id, attrs: attrs}
 
-      assert {:ok, _, ^extra} = Bare.decode packet
+      packet = Bare.encode bare
+      {:ok, decoded_bare} = Bare.decode packet
+
+      assert bare.method == decoded_bare.method
+      assert bare.class == decoded_bare.class
+      assert bare.t_id == decoded_bare.t_id
+      assert bare.attrs == decoded_bare.attrs
+      assert packet == decoded_bare.raw
     end
   end
 
