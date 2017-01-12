@@ -1,11 +1,18 @@
 defmodule Jerboa.Format.Head.Type do
   @moduledoc """
 
-  Encode and decode the class and method for the STUN header.
+  Encode and decode the class and method to and from the type.
 
   """
 
   defmodule Class do
+    @moduledoc """
+
+    Encode and decode the class. These are fixed into the two bits for
+    coding them so addtions will never be made here.
+
+    """
+
     def encode(:request),    do: <<0 :: 2>>
     def encode(:indication), do: <<1 :: 2>>
     def encode(:success),    do: <<2 :: 2>>
@@ -18,6 +25,13 @@ defmodule Jerboa.Format.Head.Type do
   end
 
   defmodule Method do
+    @moduledoc """
+
+    Encode and decode the method. These are described in various RFCs
+    so addtions will be made here.
+
+    """
+
     def encode(:binding), do: <<0x0001 :: 12>>
 
     def decode(<<0x0001 :: 12>>), do: :binding
