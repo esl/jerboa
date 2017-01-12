@@ -12,14 +12,37 @@ defmodule Jerboa.Format do
 
   defstruct [:class, :method, :length, :identifier, :attributes, :head, :body]
 
+  defmodule BinaryTooShort do
+    defexception [:message, :binary]
+
+    def message(%__MODULE__{binary: b}) do
+      "The STUN wire format requires a header of at least 20 bytes. Got #{byte_size b} bytes."
+    end
+  end
+
   def encode(params) do
     params
     |> Head.encode
   end
 
-  def decode(<<x::20-binary, y::binary>>) do
-    %Jerboa.Format{head: x, body: y}
-    |> Head.decode
-    |> Body.decode
+  def decode!(bin) do
+    case decode(bin) do
+      {:ok, value} ->
+        value
+      {:error, e} ->
+        raise e
+    end
+  end
+
+  def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
+    {:error, BinaryTooShort.exception(binary: bin)}
+  end
+  def decode(<<head::20-binary, body::binary>>) do
+    case Head.decode(%Jerboa.Format{head: head, body: body}) do
+      {:ok, x} ->
+        Body.decode(x)
+      {:error, _} = e ->
+        e
+    end
   end
 end

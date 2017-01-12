@@ -12,7 +12,7 @@ defmodule Jerboa.Format.BodyTest do
       p = :crypto.exor(<<0 :: 16>>, @most_significant_magic_16)
       ip_4 = :crypto.exor(<<0 :: 32>>, <<0x2112A442::32>>)
       b = <<0x0020::16, 8::16, 0::8, 0x01::8, p::16-bits, ip_4::32-bits>>
-      assert %Jerboa.Format{attributes: [x]} = Body.decode(%Jerboa.Format{body: b})
+      assert {:ok, %Jerboa.Format{attributes: [x]}} = Body.decode(%Jerboa.Format{body: b})
       assert x == %Attribute{
         name: Attribute.XORMappedAddress,
         value: %Attribute.XORMappedAddress{

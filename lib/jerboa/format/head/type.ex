@@ -32,9 +32,18 @@ defmodule Jerboa.Format.Head.Type do
 
     """
 
+    defmodule Unknown do
+      defexception [:message,:method]
+
+      def message(%__MODULE__{method: m}) do
+        "Unknown STUN method: 0x#{Integer.to_string(m, 16)}."
+      end
+    end
+
     def encode(:binding), do: <<0x0001 :: 12>>
 
-    def decode(<<0x0001 :: 12>>), do: :binding
+    def decode(<<0x0001 :: 12>>), do: {:ok, :binding}
+    def decode(<<m :: 12>>),      do: {:error, Unknown.exception(method: m)}
   end
 
   def encode(%Jerboa.Format{class: x, method: y}) do
@@ -42,8 +51,13 @@ defmodule Jerboa.Format.Head.Type do
   end
 
   def decode(<<m0_4::5-bits, c0::1, m5_7::3-bits, c1::1, m7_10::4-bits>>) do
-    [class: Class.decode(<<c0::1, c1::1>>),
-     method: Method.decode(<<m0_4::5-bits, m5_7::3-bits, m7_10::4-bits>>)]
+    case Method.decode(<<m0_4::5-bits, m5_7::3-bits, m7_10::4-bits>>) do
+      {:ok, method} ->
+        class = Class.decode(<<c0::1, c1::1>>)
+        {:ok, class, method}
+      {:error, _} = e ->
+        e
+    end
   end
 
   defp encode(<< c0::1, c1::1 >>, << m0::1, m1::1, m2::1, m3::1, m4::1, m5::1, m6::1, m7::1, m8::1, m9::1, m10::1, m11::1 >>) do
