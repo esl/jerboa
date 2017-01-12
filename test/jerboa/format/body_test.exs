@@ -30,6 +30,15 @@ defmodule Jerboa.Format.BodyTest do
     end
   end
 
+  describe "Body.Attribute.decode/1" do
+
+    test "unknow comprehension required attribute results in :error tuple" do
+      for x <- 0x0000..0x7FFF, not x in known() do
+        assert {:error, %Attribute.ComprehensionRequiredError{attribute: x}} == Attribute.decode(%Jerboa.Format{}, x, <<>>)
+      end
+    end
+  end
+
   defp padding, do: 0
 
   defp ip_4, do: 0x01
@@ -53,5 +62,9 @@ defmodule Jerboa.Format.BodyTest do
   defp most_significant_magic_16 do
     <<x::16-bits, _::16>> = magic_cookie()
     x
+  end
+
+  defp known do
+    [0x0020]
   end
 end
