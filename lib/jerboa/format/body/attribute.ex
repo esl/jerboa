@@ -8,5 +8,5 @@ defmodule Jerboa.Format.Body.Attribute do
 
   defstruct [:name, :value]
 
-  def decode(0x0020, v), do: Attribute.XORMappedAddress.decode v
+  def decode(params, 0x0020, v), do: Attribute.XORMappedAddress.decode params, v
 end
