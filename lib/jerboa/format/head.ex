@@ -24,7 +24,7 @@ defmodule Jerboa.Format.Head do
     encode t, l, i
   end
 
-  def decode(x = %Jerboa.Format{head: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96>>}) do
+  def decode(x = %Jerboa.Format{head: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96-bits>>}) do
     with {:ok, class, method} <- Type.decode(t),
          {:ok, length}        <- Length.decode(l) do
       {:ok, %{x | class: class, method: method, length: length, identifier: i}}

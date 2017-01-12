@@ -41,13 +41,19 @@ defmodule Jerboa.Format.HeadTest do
       end
     end
 
-    test "(binding response)" do
+    test "(binding response) class and method from type" do
       i = @i
       h = <<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits>>
       assert {:ok,
               %Jerboa.Format{
                 class: :success,
                 method: :binding}} = Head.decode(%Jerboa.Format{head: h})
+    end
+
+    test "identifier is a 96 bit binary (not an integer)" do
+      i = @i
+      h = <<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits>>
+      assert {:ok, %Jerboa.Format{identifier: ^i}} = Head.decode(%Jerboa.Format{head: h})
     end
   end
 
