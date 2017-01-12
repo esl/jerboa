@@ -15,7 +15,7 @@ defmodule JerboaTest do
       attributes: [a]} = Jerboa.Format.decode response
     assert %Attribute{
       name: Attribute.XORMappedAddress,
-      value: %Attribute.XORMappedAddress.IPAddress{
+      value: %Attribute.XORMappedAddress{
         family: 4,
         address: {_,_,_,_},
         port: _}} = a
