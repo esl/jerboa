@@ -10,25 +10,25 @@ defmodule Jerboa.Format.Body do
 
   alias Jerboa.Format.Body.Attribute
 
-  def decode(message = %Jerboa.Format{length: 0}), do: {:ok, message}
-  def decode(message = %Jerboa.Format{body: body}) when is_binary(body) do
-    case decode(body, []) do
+  def decode(params = %Jerboa.Format{length: 0}), do: {:ok, params}
+  def decode(params = %Jerboa.Format{body: body}) when is_binary(body) do
+    case decode(params, body, []) do
       {:ok, attributes} ->
-        {:ok, %{message | attributes: attributes}}
+        {:ok, %{params | attributes: attributes}}
       {:error, _} = e ->
         e
     end
   end
 
-  defp decode(<<t :: 16, s :: 16, v :: bytes-size(s), r :: binary>>, attrs) do
-    case Attribute.decode(t, v) do
+  defp decode(params, <<t::16, s::16, v::bytes-size(s), r::binary>>, attrs) do
+    case Attribute.decode(params, t, v) do
       {:ok, attr} ->
-        decode r, attrs ++ [attr]
+        decode params, r, attrs ++ [attr]
       {:error, _} = e ->
         e
     end
   end
-  defp decode(<<>>, attrs) do
+  defp decode(_, <<>>, attrs) do
     {:ok, attrs}
   end
 end
