@@ -2,7 +2,7 @@ defmodule JerboaTest do
   use ExUnit.Case
   alias Jerboa.Format.Body.Attribute
   @google_ip {74, 125, 143, 127}
-  @google_port 19302
+  @google_port 19_302
 
   test "binding request and response on UDP" do
     {:ok, socket} = :gen_udp.open(4096, [:binary, active: false])

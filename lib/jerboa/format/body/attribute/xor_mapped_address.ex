@@ -10,6 +10,13 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   @ip_6 <<0x02 :: 8>>
 
   defmodule IPAddress do
+    @moduledoc """
+
+    This does infact have protocol family, IP address, and port number
+    fields.
+
+    """
+
     defstruct [:family, :address, :port]
   end
 

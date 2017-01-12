@@ -1,12 +1,13 @@
 defmodule Jerboa.Format do
   @moduledoc """
 
-  Encode and decode the STUN wire format. There are two entities: the
-  `head' and the `body'. The body encapsulates what it means to encode
-  and decode zero or more attributes. It is not an entity described in
-  the RFC.
+  Encode and decode the STUN wire format. There are two entities
+  concerning the raw binary: the `head' and the `body'. The body
+  encapsulates what it means to encode and decode zero or more
+  attributes. It is not an entity described in the RFC.
 
   """
+
   alias Jerboa.Format.{Head,Body}
 
   defstruct [:class, :method, :length, :identifier, :attributes, :head, :body]
