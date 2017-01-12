@@ -33,7 +33,7 @@ defmodule Jerboa.FormatTest do
         attributes: [x]} = got
       assert %Attribute{
         name: Attribute.XORMappedAddress,
-        value: %Attribute.XORMappedAddress.IPAddress{
+        value: %Attribute.XORMappedAddress{
           family: 4,
           address: {0,0,0,0},
           port: 0}} == x
