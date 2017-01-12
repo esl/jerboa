@@ -17,8 +17,12 @@ defmodule Jerboa.Format.Head do
   end
 
   def decode(x = %Jerboa.Format{head: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96>>}) do
-    [class: c, method: m] = Type.decode t
-    %{x | class: c, method: m, length: Length.decode(l), identifier: i}
+    case Type.decode(t) do
+      {:ok, class, method} ->
+        {:ok, %{x | class: class, method: method, length: Length.decode(l), identifier: i}}
+      {:error, _} = e ->
+        e
+    end
   end
 
   defp encode(type, length, identifier) do

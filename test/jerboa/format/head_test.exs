@@ -34,12 +34,14 @@ defmodule Jerboa.Format.HeadTest do
   end
 
   describe "Head.decode/1" do
+
     test "(binding response)" do
       i = @i
       h = <<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits>>
-      assert %Jerboa.Format{
-        class: :success,
-        method: :binding} = Head.decode(%Jerboa.Format{head: h})
+      assert {:ok,
+              %Jerboa.Format{
+                class: :success,
+                method: :binding}} = Head.decode(%Jerboa.Format{head: h})
     end
   end
 
