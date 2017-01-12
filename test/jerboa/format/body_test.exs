@@ -2,20 +2,10 @@ defmodule Jerboa.Format.BodyTest do
   use ExUnit.Case
   alias Jerboa.Format.Body
   alias Jerboa.Format.Body.Attribute
-  @mapped_ip4_address <<0x0001::16, 8::16, 0::8, 0x01::8, 0::16, 0::32>>
+
   @most_significant_magic_16 <<0x2112 :: 16>>
 
   describe "Body.decode/1" do
-
-    test "just one (mapped address) attribute" do
-      assert %Jerboa.Format{attributes: [x]} = Body.decode(%Jerboa.Format{body: @mapped_ip4_address})
-      assert x == %Attribute{
-        name: Attribute.MappedAddress,
-        value: %Attribute.MappedAddress.IPAddress{
-          family: 4,
-          address: {0,0,0,0},
-          port: 0}}
-    end
 
     test "exclusive or mapped address attribute" do
       use Bitwise
