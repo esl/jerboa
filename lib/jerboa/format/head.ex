@@ -9,6 +9,14 @@ defmodule Jerboa.Format.Head do
 
   @magic_cookie MagicCookie.encode
 
+  defmodule MostSignificant2BitsError do
+    defexception [:message, :bits]
+
+    def message(%__MODULE__{}) do
+      "the most significant two bits of a STUN message must be zeros"
+    end
+  end
+
   def encode(params) do
     t = Type.encode(params)
     l = Length.encode(params)
@@ -17,12 +25,16 @@ defmodule Jerboa.Format.Head do
   end
 
   def decode(x = %Jerboa.Format{head: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96>>}) do
-    case Type.decode(t) do
-      {:ok, class, method} ->
-        {:ok, %{x | class: class, method: method, length: Length.decode(l), identifier: i}}
+    with {:ok, class, method} <- Type.decode(t),
+         {:ok, length}        <- Length.decode(l) do
+      {:ok, %{x | class: class, method: method, length: length, identifier: i}}
+    else
       {:error, _} = e ->
         e
     end
+  end
+  def decode(%Jerboa.Format{head: <<b::2, _::158>>}) do
+    {:error, MostSignificant2BitsError.exception(bits: b)}
   end
 
   defp encode(type, length, identifier) do
