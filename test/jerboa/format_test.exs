@@ -1,5 +1,5 @@
 defmodule Jerboa.FormatTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   use Quixir
 
   alias Jerboa.Format
