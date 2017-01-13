@@ -1,6 +1,7 @@
 defmodule JerboaTest do
   use ExUnit.Case, async: true
   alias Jerboa.Format.Body.Attribute
+  @moduletag system: true
   @google_ip {74, 125, 143, 127}
   @google_port 19_302
 
