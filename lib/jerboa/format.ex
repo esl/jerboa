@@ -1,17 +1,45 @@
 defmodule Jerboa.Format do
   @moduledoc """
+  Encode and decode the STUN wire format
 
-  Encode and decode the STUN wire format. There are two entities
-  concerning the raw binary: the `head' and the `body'. The body
-  encapsulates what it means to encode and decode zero or more
-  attributes. It is not an entity described in the RFC.
-
+  There are two main entities concerning the raw binary: the `head`
+  and the `body`. The body encapsulates what it means to encode and
+  decode zero or more attributes. It is not an entity described in the
+  RFC.
   """
 
   alias Jerboa.Format.{Head,Body}
 
   defstruct [:class, :method, :length, :identifier,
              :head, :body, excess: <<>>, attributes: []]
+  @typedoc """
+  The main data structure representing STUN message parameters
+
+  The following fields coresspond to the those described in the [STUN
+  RFC](https://tools.ietf.org/html/rfc5389#section-6):
+
+  * `class` is one of request, success or failure response, or indincation
+  * `method` is a STUN (or TURN) message method described in one of the respective RFCs
+  * `length` is the length of the STUN message body in bytes
+  * `identifier` is a unique transaction identifier
+  * `attributes` is a list of STUN (or TURN) attributes as described in their respective RFCs
+  * `head` is the raw Elixir binary representation of the STUN header
+    initially encoding the `class`, `method`, `length`, `identifier`,
+    and magic cookie fields
+  * `body` is the raw Elixir binary representation of the STUN attributes
+  * `excess` are any trialing bytes after the length given in the STUN header
+
+  """
+  @type t :: %__MODULE__{
+    class: Class.t,
+    method: Method.t,
+    length: non_neg_integer,
+    identifier: binary,
+    attributes: [Attribute.t],
+    head: binary,
+    body: binary,
+    excess: binary
+  }
 
   defmodule BinaryTooShort do
     defexception [:message, :binary]
@@ -21,20 +49,37 @@ defmodule Jerboa.Format do
     end
   end
 
+  @spec encode(params :: t) :: binary
+  @doc """
+  Encode a complete set of parameters into a binary suitable writing
+  to the network
+  """
   def encode(params) do
     params
     |> Head.encode
   end
 
+  @spec decode!(binary) :: t | no_return
+  @doc """
+  The same as `decode/1` but raises one of various exceptions if the
+  binary doesn't encode a STUN message
+  """
   def decode!(bin) do
     case decode(bin) do
-      {:ok, value} ->
-        value
+      {:ok, params} ->
+        params
       {:error, e} ->
         raise e
     end
   end
 
+  @spec decode(binary) :: {:ok, t} | {:error, struct}
+  @doc """
+  Decode a binary into a complete set of STUN message parameters
+
+  Return an `:ok` tuple or an `:error` tuple with an error struct if
+  the binary doesn't encode a STUN message.
+  """
   def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
     {:error, BinaryTooShort.exception(binary: bin)}
   end

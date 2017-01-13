@@ -1,9 +1,5 @@
 defmodule Jerboa.Format.Head.Length do
-  @moduledoc """
-
-  Encode and decode body length for the STUN wire format.
-
-  """
+  @moduledoc false
 
   defmodule Last2BitsError do
     defexception [:message, :length]

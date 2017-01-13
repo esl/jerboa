@@ -1,12 +1,5 @@
 defmodule Jerboa.Format.Body do
-  @moduledoc """
-
-  Encode and decode attributes. Collectively we call these the
-  body. We decode attributes immediately, i.e. we don't build a
-  intermediate list of the name and values pairs, as we want to fail
-  quickly.
-
-  """
+  @moduledoc false
 
   alias Jerboa.Format.Body.Attribute
 

@@ -14,7 +14,7 @@ defmodule Jerboa.Format.BodyTest do
       assert x == %Attribute{
         name: Attribute.XORMappedAddress,
         value: %Attribute.XORMappedAddress{
-          family: 4,
+          family: :ipv4,
           address: {0,0,0,0},
           port: 0}}
     end
@@ -26,7 +26,7 @@ defmodule Jerboa.Format.BodyTest do
       assert x == %Attribute{
         name: Attribute.XORMappedAddress,
         value: %Attribute.XORMappedAddress{
-          family: 6,
+          family: :ipv6,
           address: {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0},
           port: 0}}
     end
