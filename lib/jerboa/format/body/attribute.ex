@@ -1,12 +1,17 @@
 defmodule Jerboa.Format.Body.Attribute do
   @moduledoc """
-
-  Encode and decode attributes for the STUN wire format.
-
+  STUN protocol attributes
   """
   alias Jerboa.Format.Body.Attribute
 
   defstruct [:name, :value]
+  @typedoc """
+  The data structure representing a STUN attribute
+  """
+  @type t :: %__MODULE__{
+    name: module,
+    value: struct
+  }
 
   defmodule ComprehensionRequiredError do
     defexception [:message, :attribute]
@@ -16,6 +21,9 @@ defmodule Jerboa.Format.Body.Attribute do
     end
   end
 
+  @doc false
+  @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)
+    :: {:ok, t} | {:error, struct}
   def decode(params, 0x0020, v) do
     Attribute.XORMappedAddress.decode params, v
   end

@@ -153,7 +153,7 @@ defmodule Jerboa.FormatTest do
       assert %Attribute{
         name: Attribute.XORMappedAddress,
         value: %Attribute.XORMappedAddress{
-          family: 4,
+          family: :ipv4,
           address: {0,0,0,0},
           port: 0}} == x
     end

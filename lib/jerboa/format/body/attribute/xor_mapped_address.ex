@@ -1,8 +1,7 @@
 defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   @moduledoc """
-
-  Encode and decode the XORMappedAddress attribute.
-
+  XOR Mapped Address attribute as defined in the [STUN
+  RFC](https://tools.ietf.org/html/rfc5389#section-15.2)
   """
 
   alias Jerboa.Format.Body.Attribute
@@ -13,6 +12,14 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   @most_significant_magic_16 @magic_cookie >>> 16
 
   defstruct [:family, :address, :port]
+  @typedoc """
+  A client's reflexive transport address
+  """
+  @type t :: %__MODULE__{
+    family: :ipv4 | :ipv6,
+    address: :inet.ip_address,
+    port: :inet.port_number
+  }
 
   defmodule InvalidFamily do
     defexception [:message, :number]
@@ -31,11 +38,13 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     end
   end
 
+  @doc false
+  @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t} | {:error, struct}
   def decode(_, <<_::8, @ip_4, p::16, a::32-bits>>) do
-    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: 4, address: ip_4(a), port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv4, address: ip_4(a), port: port(p)}}}
   end
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
-    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: 6, address: ip_6(a, i), port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv6, address: ip_6(a, i), port: port(p)}}}
   end
   def decode(_, value) when byte_size(value) != 20 or byte_size(value) != 8 do
     {:error, InvalidLength.exception(length: byte_size(value))}

@@ -1,23 +1,23 @@
 defmodule Jerboa.Format.Head.Type do
-  @moduledoc """
-
-  Encode and decode the class and method to and from the type.
-
-  """
+  @moduledoc false
 
   defmodule Class do
     @moduledoc """
-
-    Encode and decode the class. These are fixed into the two bits for
-    coding them so addtions will never be made here.
-
+    The STUN message classes
     """
 
+    @typedoc """
+    Either a request, indication, success or failure response
+    """
+    @type t :: :request | :indication | :success | :failure
+
+    @doc false
     def encode(:request),    do: <<0 :: 2>>
     def encode(:indication), do: <<1 :: 2>>
     def encode(:success),    do: <<2 :: 2>>
     def encode(:failure),    do: <<3 :: 2>>
 
+    @doc false
     def decode(<<0 :: 2>>), do: :request
     def decode(<<1 :: 2>>), do: :indication
     def decode(<<2 :: 2>>), do: :success
@@ -26,10 +26,7 @@ defmodule Jerboa.Format.Head.Type do
 
   defmodule Method do
     @moduledoc """
-
-    Encode and decode the method. These are described in various RFCs
-    so addtions will be made here.
-
+    The STUN message methods
     """
 
     defmodule Unknown do
@@ -40,8 +37,15 @@ defmodule Jerboa.Format.Head.Type do
       end
     end
 
+    @typedoc """
+    The atom representing a STUN method
+    """
+    @type t :: :binding
+
+    @doc false
     def encode(:binding), do: <<0x0001 :: 12>>
 
+    @doc false
     def decode(<<0x0001 :: 12>>), do: {:ok, :binding}
     def decode(<<m :: 12>>),      do: {:error, Unknown.exception(method: m)}
   end

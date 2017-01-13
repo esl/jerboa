@@ -1,9 +1,5 @@
 defmodule Jerboa.Format.Head do
-  @moduledoc """
-
-  Encode and decode headers for the STUN wire format.
-
-  """
+  @moduledoc false
 
   alias Jerboa.Format.Head.{Type,Length,MagicCookie,Identifier}
 

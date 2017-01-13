@@ -19,7 +19,7 @@ defmodule JerboaTest do
     assert %Attribute{
       name: Attribute.XORMappedAddress,
       value: %Attribute.XORMappedAddress{
-        family: 4,
+        family: :ipv4,
         address: {_,_,_,_},
         port: _}} = a
   end
