@@ -33,30 +33,6 @@ defmodule Jerboa.Format.HeadTest do
     end
   end
 
-  describe "Head.decode/1" do
-
-    test "header hasn't leading clear bits" do
-      for b <- 0b01..0b11 do
-        assert {:error, %Head.MostSignificant2BitsError{bits: b}} == Head.decode(%Jerboa.Format{head: <<b::2, any()::158-bits>>})
-      end
-    end
-
-    test "(binding response) class and method from type" do
-      i = @i
-      h = <<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits>>
-      assert {:ok,
-              %Jerboa.Format{
-                class: :success,
-                method: :binding}} = Head.decode(%Jerboa.Format{head: h})
-    end
-
-    test "identifier is a 96 bit binary (not an integer)" do
-      i = @i
-      h = <<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits>>
-      assert {:ok, %Jerboa.Format{identifier: ^i}} = Head.decode(%Jerboa.Format{head: h})
-    end
-  end
-
   describe "Head.*.encode/1" do
 
     test "bind request method and class in 14 bit type" do
@@ -70,18 +46,5 @@ defmodule Jerboa.Format.HeadTest do
       assert 16 === bit_size x
       assert <<0, 4>> = x
     end
-  end
-
-  describe "Head.*.decode/1" do
-
-    test "length into 16 bits (two bytes)" do
-      for b <- 0b01..0b11 do
-        assert {:error, %Head.Length.Last2BitsError{bits: b}} == Head.Length.decode(<<any()::14-bits, b::2>>)
-      end
-    end
-  end
-
-  defp any do
-    :crypto.strong_rand_bytes(div(160, 8))
   end
 end
