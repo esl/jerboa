@@ -25,6 +25,7 @@ defmodule Jerboa.FormatTest do
         method: :binding,
         identifier: @i,
         body: <<>>}
+
       assert want == got
     end
   end
@@ -46,7 +47,8 @@ defmodule Jerboa.FormatTest do
         packet = <<first_two::2, content::size(bit_length)>>
 
         {:error, error} = Format.decode packet
-         assert %MostSignificant2BitsError{bits: ^first_two} = error
+
+        assert %MostSignificant2BitsError{bits: ^first_two} = error
       end
     end
 
@@ -58,6 +60,7 @@ defmodule Jerboa.FormatTest do
         <<header::20-bytes, _::binary>> = packet
 
         {:error, error} = Format.decode packet
+
         assert %MagicCookieError{header: ^header} = error
       end
     end
@@ -69,6 +72,7 @@ defmodule Jerboa.FormatTest do
                   content::size(length)-unit(8)>>
 
         {:error, error} = Format.decode packet
+
         assert %Last2BitsError{length: ^length} = error
       end
     end
@@ -81,6 +85,7 @@ defmodule Jerboa.FormatTest do
                    @magic::32, 0::96>>
 
         {:error, error} = Format.decode packet
+
         assert %Method.Unknown{method: ^method} = error
       end
     end
@@ -112,6 +117,7 @@ defmodule Jerboa.FormatTest do
                    body::unit(8)-size(body_length)>>
 
         {:error, error} = Format.decode packet
+
         assert %Body.TooShortError{length: ^body_length} = error
       end
     end
@@ -136,7 +142,9 @@ defmodule Jerboa.FormatTest do
       p = :crypto.exor(<<0 :: 16>>, @most_significant_magic_16)
       ip_4 = :crypto.exor(<<0 :: 32>>, <<0x2112A442::32>>)
       a = <<0x0020::16, 8::16, 0::8, 0x01::8, p::16-bits, ip_4::32-bits>>
+
       got = Jerboa.Format.decode(<<0::2, 257::14, 12::16, 0x2112A442::32, i::96-bits, a::binary>>)
+
       assert {:ok,
               %Jerboa.Format{
                 class: :success,

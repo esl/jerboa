@@ -6,9 +6,11 @@ defmodule JerboaTest do
 
   test "binding request and response on UDP" do
     {:ok, socket} = :gen_udp.open(4096, [:binary, active: false])
+
     :ok = :gen_udp.send(socket, @google_ip, @google_port, binding_request())
     {:ok, {_, _, response}} = :gen_udp.recv(socket, 0)
     :ok = :gen_udp.close(socket)
+
     assert {:ok,
             %Jerboa.Format{
               class: :success,
