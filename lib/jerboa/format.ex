@@ -10,7 +10,8 @@ defmodule Jerboa.Format do
 
   alias Jerboa.Format.{Head,Body}
 
-  defstruct [:class, :method, :length, :identifier, :attributes, :head, :body]
+  defstruct [:class, :method, :length, :identifier, :attributes,
+             :head, :body, excess: <<>>]
 
   defmodule BinaryTooShort do
     defexception [:message, :binary]

@@ -10,8 +10,23 @@ defmodule Jerboa.Format.Body do
 
   alias Jerboa.Format.Body.Attribute
 
-  def decode(params = %Jerboa.Format{length: 0}), do: {:ok, params}
-  def decode(params = %Jerboa.Format{body: body}) when is_binary(body) do
+  defmodule TooShortError do
+    defexception [:message, :length]
+
+    def message(%__MODULE__{}) do
+      "message body is shorter than specified length"
+    end
+  end
+
+  def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}
+  def decode(%Jerboa.Format{body: body, length: length}) when byte_size(body) < length do
+      {:error, TooShortError.exception(length: byte_size(body))}
+  end
+  def decode(params = %Jerboa.Format{body: body, length: length}) when byte_size(body) > length do
+      <<trimmed_body::size(length)-bytes, excess::binary>> = body
+      decode(%{params | excess: excess, body: trimmed_body})
+  end
+  def decode(params = %Jerboa.Format{body: body}) do
     case decode(params, body, []) do
       {:ok, attributes} ->
         {:ok, %{params | attributes: attributes}}
