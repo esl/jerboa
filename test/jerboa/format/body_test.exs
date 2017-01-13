@@ -1,5 +1,5 @@
 defmodule Jerboa.Format.BodyTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias Jerboa.Format.Body
   alias Jerboa.Format.Body.Attribute
 

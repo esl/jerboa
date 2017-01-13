@@ -1,5 +1,5 @@
 defmodule Jerboa.Format.HeadTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias Jerboa.Format.Head
   @i :crypto.strong_rand_bytes(div 96, 8)
   @struct %Jerboa.Format{class: :request, method: :binding, identifier: @i, body: <<>>}
