@@ -37,12 +37,14 @@ defmodule Jerboa.Format.HeadTest do
 
     test "bind request method and class in 14 bit type" do
       x = Head.Type.encode(%Jerboa.Format{class: :request, method: :binding})
+
       assert 14 === bit_size x
       assert <<0x0001::16>> == <<0::2, x::14-bits>>
     end
 
     test "length into 16 bits (two bytes)" do
       x = Head.Length.encode(%Jerboa.Format{body: <<0,1,0,1>>})
+
       assert 16 === bit_size x
       assert <<0, 4>> = x
     end

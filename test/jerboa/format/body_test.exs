@@ -9,6 +9,7 @@ defmodule Jerboa.Format.BodyTest do
 
     test "IPv4 XORMappedAddress attribute" do
       b = <<0x0020::16, 8::16, padding()::8, ip_4()::8, port()::16-bits, ip_4_addr()::32-bits>>
+
       assert {:ok, %Jerboa.Format{attributes: [x]}} = Body.decode(%Jerboa.Format{body: b, length: 12})
       assert x == %Attribute{
         name: Attribute.XORMappedAddress,
@@ -20,6 +21,7 @@ defmodule Jerboa.Format.BodyTest do
 
     test "IPv6 XORMappedAddress attribute" do
       b = <<0x0020::16, 20::16, padding()::8, ip_6()::8, port()::16-bits, ip_6_addr()::128-bits>>
+
       assert {:ok, %Jerboa.Format{attributes: [x]}} = Body.decode(%Jerboa.Format{identifier: @identifier, body: b, length: 24})
       assert x == %Attribute{
         name: Attribute.XORMappedAddress,
