@@ -7,7 +7,8 @@ defmodule Jerboa.FormatTest do
   alias Format.Head.{MostSignificant2BitsError, MagicCookie,
                      MagicCookieError, Length.Last2BitsError,
                      Type.Method, Type.Class}
-  alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.Body
+  alias Body.Attribute
 
   import Bitwise
 
@@ -73,7 +74,7 @@ defmodule Jerboa.FormatTest do
     end
 
     test "fails given packet with invalid STUN method" do
-      ptest method: int(min: 1024, max: 4096), class: int(min: 0, max: 3) do
+      ptest method: int(min: 1024, max: 4095), class: int(min: 0, max: 3) do
         <<c1::1, c0::1>> = <<class::2>>
         <<m2::5, m1::3, m0::4>> = <<method::12>>
         packet = <<0::2, m2::5, c1::1, m1::3, c0::1, m0::4, 0::16,
@@ -100,12 +101,42 @@ defmodule Jerboa.FormatTest do
       end
     end
 
+    test "fails given packet with too short message body" do
+      ptest method: int(min: 1, max: 1), class: int(min: 0, max: 3),
+            length: int(min: 1000), body: int(min: 0),
+            body_length: int(min: 0, max: ^length - 1) do
+        <<c1::1, c0::1>> = <<class::2>>
+        <<m2::5, m1::3, m0::4>> = <<method::12>>
+        type = <<m2::5, c1::1, m1::3, c0::1, m0::4>>
+        packet = <<0::2, type::bits, length::16, @magic::32, 0::96,
+                   body::unit(8)-size(body_length)>>
+
+        {:error, error} = Format.decode packet
+        assert %Body.TooShortError{length: ^body_length} = error
+      end
+    end
+
+    test "returns excess part of given binary" do
+      ptest method: int(min: 1, max: 1), class: int(min: 0, max: 3),
+        extra: string(min: 1) do
+        <<c1::1, c0::1>> = <<class::2>>
+        <<m2::5, m1::3, m0::4>> = <<method::12>>
+        type = <<m2::5, c1::1, m1::3, c0::1, m0::4>>
+        packet = <<0::2, type::bits, 0::16, @magic::32, 0::96,
+          extra::binary>>
+
+        {:ok, message} = Format.decode packet
+
+        assert ^extra = message.excess
+      end
+    end
+
     test "bind response" do
       i = @i
       p = :crypto.exor(<<0 :: 16>>, @most_significant_magic_16)
       ip_4 = :crypto.exor(<<0 :: 32>>, <<0x2112A442::32>>)
       a = <<0x0020::16, 8::16, 0::8, 0x01::8, p::16-bits, ip_4::32-bits>>
-      got = Jerboa.Format.decode(<<0::2, 257::14, 8::16, 0x2112A442::32, i::96-bits, a::binary>>)
+      got = Jerboa.Format.decode(<<0::2, 257::14, 12::16, 0x2112A442::32, i::96-bits, a::binary>>)
       assert {:ok,
               %Jerboa.Format{
                 class: :success,
