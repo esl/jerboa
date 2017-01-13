@@ -17,6 +17,14 @@ defmodule Jerboa.Format.Head do
     end
   end
 
+  defmodule MagicCookieError do
+    defexception [:message, :header]
+
+    def message(%__MODULE__{}) do
+      "STUN message doesn't have magic cookie"
+    end
+  end
+
   def encode(params) do
     t = Type.encode(params)
     l = Length.encode(params)
@@ -32,6 +40,9 @@ defmodule Jerboa.Format.Head do
       {:error, _} = e ->
         e
     end
+  end
+  def decode(%Jerboa.Format{head: <<0::2, _::30, _::128>> = header}) do
+    {:error, MagicCookieError.exception(header: header)}
   end
   def decode(%Jerboa.Format{head: <<b::2, _::158>>}) do
     {:error, MostSignificant2BitsError.exception(bits: b)}

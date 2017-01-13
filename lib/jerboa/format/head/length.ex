@@ -6,7 +6,7 @@ defmodule Jerboa.Format.Head.Length do
   """
 
   defmodule Last2BitsError do
-    defexception [:message, :bits]
+    defexception [:message, :length]
 
     def message(%__MODULE__{}) do
       "all STUN attributes are padded to a multiple of 4 bytes so the last 2 bits of this field should be zero"
@@ -20,7 +20,8 @@ defmodule Jerboa.Format.Head.Length do
   def decode(x = <<_::14, 0::2>>) do
     {:ok, :binary.decode_unsigned x}
   end
-  def decode(<<_::14, b::2>>) do
-    {:error, Last2BitsError.exception(bits: b)}
+  def decode(bin_length) do
+    <<length::16>> = bin_length
+    {:error, Last2BitsError.exception(length: length)}
   end
 end
