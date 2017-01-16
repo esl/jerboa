@@ -85,6 +85,11 @@ defmodule Jerboa.Format do
   end
   def decode(<<head::20-binary, body::binary>>) do
     case Head.decode(%Jerboa.Format{head: head, body: body}) do
+      {:ok, %Jerboa.Format{body: body, length: length}} when byte_size(body) < length ->
+        {:error, Body.LengthError.exception(length: byte_size(body))}
+      {:ok, p = %Jerboa.Format{body: body, length: length}} when byte_size(body) > length ->
+        <<trimmed_body::size(length)-bytes, excess::binary>> = body
+        Body.decode(%{p | excess: excess, body: trimmed_body})
       {:ok, x} ->
         Body.decode(x)
       {:error, _} = e ->
