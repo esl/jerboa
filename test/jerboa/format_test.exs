@@ -36,7 +36,7 @@ defmodule Jerboa.FormatTest do
         byte_length = length * 8
         packet = <<content::size(byte_length)>>
 
-        {:error, %HeaderLengthError{binary: ^packet}} = Format.decode packet
+        assert {:error, %HeaderLengthError{binary: ^packet}} = Format.decode packet
       end
     end
 
@@ -156,6 +156,20 @@ defmodule Jerboa.FormatTest do
           family: :ipv4,
           address: {0,0,0,0},
           port: 0}} == x
+    end
+  end
+
+  describe "Format.decode!/1" do
+    test "raises an exception upon failure" do
+      packet = "Supercalifragilisticexpialidocious!"
+
+      assert_raise First2BitsError, fn -> Format.decode!(packet) end
+    end
+
+    test "returns value without an :ok tuple" do
+      packet = <<0::2, 1::14, 0::16, @magic::32, 0::96>>
+
+      assert %Format{} = Format.decode!(packet)
     end
   end
 end
