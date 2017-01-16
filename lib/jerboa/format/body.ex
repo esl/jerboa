@@ -21,7 +21,8 @@ defmodule Jerboa.Format.Body do
     end
   end
 
-  defp decode(params, <<t::16, s::16, v::bytes-size(s), r::binary>>, attrs) do
+  defp decode(params, <<t::16, s::16, c::bytes-size(s), r::binary>>, attrs) do
+    v =  strip(c, padding(s))
     case Attribute.decode(params, t, v) do
       {:ok, attr} ->
         decode params, r, attrs ++ [attr]
@@ -31,5 +32,17 @@ defmodule Jerboa.Format.Body do
   end
   defp decode(_, <<>>, attrs) do
     {:ok, attrs}
+  end
+
+  defp strip(b, s) do
+    <<_::bytes-size(s), b::bytes>> = b
+    b
+  end
+
+  defp padding(length) do
+    case rem(length, 4) do
+      0 -> 0
+      n -> 4 - n
+    end
   end
 end
