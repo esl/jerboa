@@ -10,7 +10,7 @@ defmodule Jerboa.Format.Head.Length do
   end
 
   def encode(%Jerboa.Format{body: b}) when is_binary(b) do
-    << byte_size(b)::integer-unit(8)-size(2) >>
+    <<byte_size(b)::integer-unit(8)-size(2)>>
   end
 
   def decode(x = <<_::14, 0::2>>) do
