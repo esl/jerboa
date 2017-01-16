@@ -28,8 +28,9 @@ defmodule Jerboa.Format.Body do
     {:ok, attrs}
   end
 
-  defp strip(b, s) do
-    <<_::bytes-size(s), b::bytes>> = b
+  defp strip(binary, padding) do
+    size = byte_size(binary) - padding
+    <<b::bytes-size(size), _::binary>> = binary
     b
   end
 
