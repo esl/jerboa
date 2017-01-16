@@ -8,7 +8,7 @@ defmodule Jerboa.Format.BodyTest do
     test "unknown comprehension required attribute results in :error tuple" do
       for type <- 0x0000..0x7FFF, not type in known_comprehension_required() do
         body = <<type::16, 0::16>>
-        assert {:error, %Format.ComprehensionError{attribute: type}} == Body.decode(%Format{body: body})
+        assert {:error, %Format.ComprehensionError{attribute: ^type}} = Body.decode(%Format{body: body})
       end
     end
 
