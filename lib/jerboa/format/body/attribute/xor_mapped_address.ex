@@ -23,12 +23,16 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   }
 
   @doc false
-  @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t} | {:error, struct}
+  @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t}
+                                                            | {:error, struct}
   def decode(_, <<_::8, @ip_4, p::16, a::32-bits>>) do
-    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv4, address: ip_4(a), port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__,
+                     value: %__MODULE__{family: :ipv4, address: ip_4(a), port: port(p)}}}
   end
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
-    {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv6, address: ip_6(a, i), port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__,
+                     value: %__MODULE__{family: :ipv6, address: ip_6(a, i),
+                                        port: port(p)}}}
   end
   def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
     {:error, LengthError.exception(length: byte_size(value))}
