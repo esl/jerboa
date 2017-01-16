@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Head do
 
   @magic_cookie MagicCookie.encode
 
-  defmodule MostSignificant2BitsError do
+  defmodule First2BitsError do
     defexception [:message, :bits]
 
     def message(%__MODULE__{}) do
@@ -41,7 +41,7 @@ defmodule Jerboa.Format.Head do
     {:error, MagicCookieError.exception(header: header)}
   end
   def decode(%Jerboa.Format{head: <<b::2, _::158>>}) do
-    {:error, MostSignificant2BitsError.exception(bits: b)}
+    {:error, First2BitsError.exception(bits: b)}
   end
 
   defp encode(type, length, identifier) do

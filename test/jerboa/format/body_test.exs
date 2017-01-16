@@ -36,7 +36,7 @@ defmodule Jerboa.Format.BodyTest do
 
     test "unknow comprehension required attribute results in :error tuple" do
       for x <- 0x0000..0x7FFF, not x in known() do
-        assert {:error, %Attribute.ComprehensionRequiredError{attribute: x}} == Attribute.decode(%Jerboa.Format{}, x, <<>>)
+        assert {:error, %Attribute.ComprehensionError{attribute: x}} == Attribute.decode(%Jerboa.Format{}, x, <<>>)
       end
     end
   end

@@ -3,8 +3,8 @@ defmodule Jerboa.FormatTest do
   use Quixir
 
   alias Jerboa.Format
-  alias Format.BinaryTooShort
-  alias Format.Head.{MostSignificant2BitsError, MagicCookie,
+  alias Format.LengthError
+  alias Format.Head.{First2BitsError, MagicCookie,
                      MagicCookieError, Length.Last2BitsError,
                      Type.Method, Type.Class}
   alias Jerboa.Format.Body
@@ -36,7 +36,7 @@ defmodule Jerboa.FormatTest do
         byte_length = length * 8
         packet = <<content::size(byte_length)>>
 
-        {:error, %BinaryTooShort{binary: ^packet}} = Format.decode packet
+        {:error, %LengthError{binary: ^packet}} = Format.decode packet
       end
     end
 
@@ -48,7 +48,7 @@ defmodule Jerboa.FormatTest do
 
         {:error, error} = Format.decode packet
 
-        assert %MostSignificant2BitsError{bits: ^first_two} = error
+        assert %First2BitsError{bits: ^first_two} = error
       end
     end
 
@@ -86,7 +86,7 @@ defmodule Jerboa.FormatTest do
 
         {:error, error} = Format.decode packet
 
-        assert %Method.Unknown{method: ^method} = error
+        assert %Method.UnknownError{method: ^method} = error
       end
     end
 
@@ -118,7 +118,7 @@ defmodule Jerboa.FormatTest do
 
         {:error, error} = Format.decode packet
 
-        assert %Body.TooShortError{length: ^body_length} = error
+        assert %Body.LengthError{length: ^body_length} = error
       end
     end
 

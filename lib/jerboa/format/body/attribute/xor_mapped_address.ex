@@ -21,15 +21,15 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     port: :inet.port_number
   }
 
-  defmodule InvalidFamily do
+  defmodule IPFamilyError do
     defexception [:message, :number]
 
     def message(%__MODULE__{number: n}) do
-      "IP family should be 4 or 6. Got 0x#{Integer.to_string(n, 16)} on the wire."
+      "IP family should be for 0x01 IPv4 or 0x02 for IPv6 but got 0x#{Integer.to_string(n, 16)}"
     end
   end
 
-  defmodule InvalidLength do
+  defmodule LengthError do
     defexception [:message, :length]
 
     def message(%__MODULE__{}) do
@@ -47,10 +47,10 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv6, address: ip_6(a, i), port: port(p)}}}
   end
   def decode(_, value) when byte_size(value) != 20 or byte_size(value) != 8 do
-    {:error, InvalidLength.exception(length: byte_size(value))}
+    {:error, LengthError.exception(length: byte_size(value))}
   end
   def decode(_, <<_::8, f::8, _::binary>>) do
-    {:error, InvalidFamily.exception(number: f)}
+    {:error, IPFamilyError.exception(number: f)}
   end
 
   defp port(x) do
