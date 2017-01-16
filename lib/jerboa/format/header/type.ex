@@ -1,4 +1,4 @@
-defmodule Jerboa.Format.Head.Type do
+defmodule Jerboa.Format.Header.Type do
   @moduledoc false
 
   defmodule Class do

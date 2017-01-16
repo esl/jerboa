@@ -8,7 +8,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   import Bitwise
   @ip_4 <<0x01::8>>
   @ip_6 <<0x02::8>>
-  @magic_cookie Jerboa.Format.Head.MagicCookie.value
+  @magic_cookie Jerboa.Format.Header.MagicCookie.value
   @most_significant_magic_16 @magic_cookie >>> 16
 
   defstruct [:family, :address, :port]

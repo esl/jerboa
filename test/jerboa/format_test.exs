@@ -4,7 +4,7 @@ defmodule Jerboa.FormatTest do
 
   alias Jerboa.Format
   alias Format.LengthError
-  alias Format.Head.{First2BitsError, MagicCookie,
+  alias Format.Header.{First2BitsError, MagicCookie,
                      MagicCookieError, Length.Last2BitsError,
                      Type.Method, Type.Class}
   alias Jerboa.Format.Body

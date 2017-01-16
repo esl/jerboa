@@ -2,16 +2,16 @@ defmodule Jerboa.Format do
   @moduledoc """
   Encode and decode the STUN wire format
 
-  There are two main entities concerning the raw binary: the `head`
+  There are two main entities concerning the raw binary: the `header`
   and the `body`. The body encapsulates what it means to encode and
   decode zero or more attributes. It is not an entity described in the
   RFC.
   """
 
-  alias Jerboa.Format.{Head,Body}
+  alias Jerboa.Format.{Header,Body}
 
   defstruct [:class, :method, :length, :identifier,
-             :head, :body, excess: <<>>, attributes: []]
+             :header, :body, excess: <<>>, attributes: []]
   @typedoc """
   The main data structure representing STUN message parameters
 
@@ -23,7 +23,7 @@ defmodule Jerboa.Format do
   * `length` is the length of the STUN message body in bytes
   * `identifier` is a unique transaction identifier
   * `attributes` is a list of STUN (or TURN) attributes as described in their respective RFCs
-  * `head` is the raw Elixir binary representation of the STUN header
+  * `header` is the raw Elixir binary representation of the STUN header
     initially encoding the `class`, `method`, `length`, `identifier`,
     and magic cookie fields
   * `body` is the raw Elixir binary representation of the STUN attributes
@@ -36,7 +36,7 @@ defmodule Jerboa.Format do
     length: non_neg_integer,
     identifier: binary,
     attributes: [Attribute.t],
-    head: binary,
+    header: binary,
     body: binary,
     excess: binary
   }
@@ -56,7 +56,7 @@ defmodule Jerboa.Format do
   """
   def encode(params) do
     params
-    |> Head.encode
+    |> Header.encode
   end
 
   @spec decode!(binary) :: t | no_return
@@ -83,8 +83,8 @@ defmodule Jerboa.Format do
   def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
     {:error, LengthError.exception(binary: bin)}
   end
-  def decode(<<head::20-binary, body::binary>>) do
-    case Head.decode(%Jerboa.Format{head: head, body: body}) do
+  def decode(<<header::20-binary, body::binary>>) do
+    case Header.decode(%Jerboa.Format{header: header, body: body}) do
       {:ok, %Jerboa.Format{body: body, length: length}} when byte_size(body) < length ->
         {:error, Body.LengthError.exception(length: byte_size(body))}
       {:ok, p = %Jerboa.Format{body: body, length: length}} when byte_size(body) > length ->

@@ -1,4 +1,4 @@
-defmodule Jerboa.Format.Head.MagicCookie do
+defmodule Jerboa.Format.Header.MagicCookie do
   @moduledoc false
 
   def encode, do: <<value()::32>>
