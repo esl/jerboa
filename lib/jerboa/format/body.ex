@@ -3,14 +3,6 @@ defmodule Jerboa.Format.Body do
 
   alias Jerboa.Format.Body.Attribute
 
-  defmodule LengthError do
-    defexception [:message, :length]
-
-    def message(%__MODULE__{}) do
-      "message body is shorter than specified length"
-    end
-  end
-
   def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}
   def decode(params = %Jerboa.Format{body: body}) do
     case decode(params, body, []) do

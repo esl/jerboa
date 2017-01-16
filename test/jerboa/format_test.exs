@@ -3,9 +3,9 @@ defmodule Jerboa.FormatTest do
   use Quixir
 
   alias Jerboa.Format
-  alias Format.LengthError
-  alias Format.Header.{First2BitsError, MagicCookie,
-                     MagicCookieError, Length.Last2BitsError,
+  alias Format.{HeaderLengthError,BodyLengthError}
+  alias Format.{First2BitsError,MagicCookieError,UnknownMethodError,Last2BitsError}
+  alias Format.Header.{MagicCookie,
                      Type.Method, Type.Class}
   alias Jerboa.Format.Body
   alias Body.Attribute
@@ -36,7 +36,7 @@ defmodule Jerboa.FormatTest do
         byte_length = length * 8
         packet = <<content::size(byte_length)>>
 
-        {:error, %LengthError{binary: ^packet}} = Format.decode packet
+        {:error, %HeaderLengthError{binary: ^packet}} = Format.decode packet
       end
     end
 
@@ -86,7 +86,7 @@ defmodule Jerboa.FormatTest do
 
         {:error, error} = Format.decode packet
 
-        assert %Method.UnknownError{method: ^method} = error
+        assert %UnknownMethodError{method: ^method} = error
       end
     end
 
@@ -118,7 +118,7 @@ defmodule Jerboa.FormatTest do
 
         {:error, error} = Format.decode packet
 
-        assert %Body.LengthError{length: ^body_length} = error
+        assert %BodyLengthError{length: ^body_length} = error
       end
     end
 

@@ -3,6 +3,7 @@ defmodule Jerboa.Format.Body.Attribute do
   STUN protocol attributes
   """
   alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.ComprehensionError
 
   defstruct [:name, :value]
   @typedoc """
@@ -12,14 +13,6 @@ defmodule Jerboa.Format.Body.Attribute do
     name: module,
     value: struct
   }
-
-  defmodule ComprehensionError do
-    defexception [:message, :attribute]
-
-    def message(%__MODULE__{attribute: n}) do
-      "can not encode/decode comprehension required attribute #{n}"
-    end
-  end
 
   @doc false
   @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)

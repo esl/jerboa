@@ -1,5 +1,6 @@
 defmodule Jerboa.Format.Header.Type do
   @moduledoc false
+  alias Jerboa.Format.UnknownMethodError
 
   defmodule Class do
     @moduledoc """
@@ -29,14 +30,6 @@ defmodule Jerboa.Format.Header.Type do
     The STUN message methods
     """
 
-    defmodule UnknownError do
-      defexception [:message,:method]
-
-      def message(%__MODULE__{method: m}) do
-        "unknown STUN method 0x#{Integer.to_string(m, 16)}"
-      end
-    end
-
     @typedoc """
     The atom representing a STUN method
     """
@@ -47,7 +40,7 @@ defmodule Jerboa.Format.Header.Type do
 
     @doc false
     def decode(<<0x0001::12>>), do: {:ok, :binding}
-    def decode(<<m::12>>),      do: {:error, UnknownError.exception(method: m)}
+    def decode(<<m::12>>),      do: {:error, UnknownMethodError.exception(method: m)}
   end
 
   def encode(%Jerboa.Format{class: x, method: y}) do
