@@ -122,7 +122,7 @@ defmodule Jerboa.FormatTest do
       end
     end
 
-    test "returns excess part of given binary" do
+    test "returns bytes after the length given in the header into the `extra` field" do
       ptest method: int(min: 1, max: 1), class: int(min: 0, max: 3),
         extra: string(min: 1) do
         <<c1::1, c0::1>> = <<class::2>>
@@ -133,7 +133,7 @@ defmodule Jerboa.FormatTest do
 
         {:ok, message} = Format.decode packet
 
-        assert ^extra = message.excess
+        assert ^extra = message.extra
       end
     end
 
