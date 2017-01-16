@@ -11,7 +11,7 @@ defmodule Jerboa.Format do
   alias Jerboa.Format.{Header,Body}
 
   defstruct [:class, :method, :length, :identifier,
-             :header, :body, excess: <<>>, attributes: []]
+             :header, :body, extra: <<>>, attributes: []]
   @typedoc """
   The main data structure representing STUN message parameters
 
@@ -27,7 +27,7 @@ defmodule Jerboa.Format do
     initially encoding the `class`, `method`, `length`, `identifier`,
     and magic cookie fields
   * `body` is the raw Elixir binary representation of the STUN attributes
-  * `excess` are any trialing bytes after the length given in the STUN header
+  * `extra` are any bytes after the length given in the STUN header
 
   """
   @type t :: %__MODULE__{
@@ -38,7 +38,7 @@ defmodule Jerboa.Format do
     attributes: [Attribute.t],
     header: binary,
     body: binary,
-    excess: binary
+    extra: binary
   }
 
   defmodule LengthError do
@@ -88,8 +88,8 @@ defmodule Jerboa.Format do
       {:ok, %Jerboa.Format{body: body, length: length}} when byte_size(body) < length ->
         {:error, Body.LengthError.exception(length: byte_size(body))}
       {:ok, p = %Jerboa.Format{body: body, length: length}} when byte_size(body) > length ->
-        <<trimmed_body::size(length)-bytes, excess::binary>> = body
-        Body.decode(%{p | excess: excess, body: trimmed_body})
+        <<trimmed_body::size(length)-bytes, extra::binary>> = body
+        Body.decode(%{p | extra: extra, body: trimmed_body})
       {:ok, x} ->
         Body.decode(x)
       {:error, _} = e ->
