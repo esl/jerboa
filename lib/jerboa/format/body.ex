@@ -12,13 +12,6 @@ defmodule Jerboa.Format.Body do
   end
 
   def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}
-  def decode(%Jerboa.Format{body: body, length: length}) when byte_size(body) < length do
-      {:error, LengthError.exception(length: byte_size(body))}
-  end
-  def decode(params = %Jerboa.Format{body: body, length: length}) when byte_size(body) > length do
-      <<trimmed_body::size(length)-bytes, excess::binary>> = body
-      decode(%{params | excess: excess, body: trimmed_body})
-  end
   def decode(params = %Jerboa.Format{body: body}) do
     case decode(params, body, []) do
       {:ok, attributes} ->
