@@ -13,7 +13,7 @@ defmodule Jerboa.Format.Body.Attribute do
     value: struct
   }
 
-  defmodule ComprehensionRequiredError do
+  defmodule ComprehensionError do
     defexception [:message, :attribute]
 
     def message(%__MODULE__{attribute: n}) do
@@ -28,6 +28,6 @@ defmodule Jerboa.Format.Body.Attribute do
     Attribute.XORMappedAddress.decode params, v
   end
   def decode(_, x, _) when x in 0x0000..0x7FFF do
-    {:error, ComprehensionRequiredError.exception(attribute: x)}
+    {:error, ComprehensionError.exception(attribute: x)}
   end
 end

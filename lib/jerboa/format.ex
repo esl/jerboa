@@ -41,11 +41,11 @@ defmodule Jerboa.Format do
     excess: binary
   }
 
-  defmodule BinaryTooShort do
+  defmodule LengthError do
     defexception [:message, :binary]
 
     def message(%__MODULE__{binary: b}) do
-      "The STUN wire format requires a header of at least 20 bytes. Got #{byte_size b} bytes."
+      "the STUN wire format requires a header of at least 20 bytes but got #{byte_size b} bytes"
     end
   end
 
@@ -81,7 +81,7 @@ defmodule Jerboa.Format do
   the binary doesn't encode a STUN message.
   """
   def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
-    {:error, BinaryTooShort.exception(binary: bin)}
+    {:error, LengthError.exception(binary: bin)}
   end
   def decode(<<head::20-binary, body::binary>>) do
     case Head.decode(%Jerboa.Format{head: head, body: body}) do

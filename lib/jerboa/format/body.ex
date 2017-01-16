@@ -3,7 +3,7 @@ defmodule Jerboa.Format.Body do
 
   alias Jerboa.Format.Body.Attribute
 
-  defmodule TooShortError do
+  defmodule LengthError do
     defexception [:message, :length]
 
     def message(%__MODULE__{}) do
@@ -13,7 +13,7 @@ defmodule Jerboa.Format.Body do
 
   def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}
   def decode(%Jerboa.Format{body: body, length: length}) when byte_size(body) < length do
-      {:error, TooShortError.exception(length: byte_size(body))}
+      {:error, LengthError.exception(length: byte_size(body))}
   end
   def decode(params = %Jerboa.Format{body: body, length: length}) when byte_size(body) > length do
       <<trimmed_body::size(length)-bytes, excess::binary>> = body
