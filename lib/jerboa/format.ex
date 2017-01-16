@@ -22,7 +22,8 @@ defmodule Jerboa.Format do
   * `method` is a STUN (or TURN) message method described in one of the respective RFCs
   * `length` is the length of the STUN message body in bytes
   * `identifier` is a unique transaction identifier
-  * `attributes` is a list of STUN (or TURN) attributes as described in their respective RFCs
+  * `attributes` is a list of STUN (or TURN) attributes as described in their
+     respective RFCs
   * `header` is the raw Elixir binary representation of the STUN header
     initially encoding the `class`, `method`, `length`, `identifier`,
     and magic cookie fields
@@ -46,7 +47,8 @@ defmodule Jerboa.Format do
 
     def exception(binary: b) do
       %__MODULE__{binary: b,
-                  message: "the STUN wire format requires a header of at least 20 bytes but got #{byte_size b} bytes"}
+                  message: "the STUN wire format requires a header of at least" <>
+                           " 20 bytes but got #{byte_size b} bytes"}
     end
   end
 
@@ -64,7 +66,8 @@ defmodule Jerboa.Format do
 
     def exception(bits: b) do
       %__MODULE__{bits: b,
-                  message: "the most significant two bits of a STUN message must be zeros"}
+                  message: "the most significant two bits of a STUN " <>
+                           "message must be zeros"}
     end
   end
 
@@ -91,7 +94,8 @@ defmodule Jerboa.Format do
 
     def exception(length: l) do
       %__MODULE__{length: l,
-                  message: "all STUN attributes are padded to a multiple of 4 bytes so the last 2 bits of this field should be zero"}
+                  message: "all STUN attributes are padded to a multiple of 4 bytes" <>
+                           " so the last 2 bits of this field should be zero"}
     end
   end
 
@@ -105,12 +109,15 @@ defmodule Jerboa.Format do
   end
 
   defmodule XORMappedAddress do
+    @moduledoc false
+
     defmodule IPFamilyError do
       defexception [:message, :number]
 
       def exception(number: n) do
         %__MODULE__{number: n,
-                    message: "IP family should be for 0x01 IPv4 or 0x02 for IPv6 but got 0x#{Integer.to_string(n, 16)}"}
+                    message: "IP family should be for 0x01 IPv4 or 0x02 for IPv6" <>
+                             " but got 0x#{Integer.to_string(n, 16)}"}
       end
     end
 
@@ -173,10 +180,10 @@ defmodule Jerboa.Format do
     {:error, HeaderLengthError.exception(binary: bin)}
   end
   def decode(<<header::20-binary, body::binary>>) do
-    case Header.decode(%Jerboa.Format{header: header, body: body}) do
-      {:ok, %Jerboa.Format{body: body, length: length}} when byte_size(body) < length ->
+    case Header.decode(%__MODULE__{header: header, body: body}) do
+      {:ok, %__MODULE__{body: body, length: length}} when byte_size(body) < length ->
         {:error, BodyLengthError.exception(length: byte_size(body))}
-      {:ok, p = %Jerboa.Format{body: body, length: length}} when byte_size(body) > length ->
+      {:ok, p = %__MODULE__{body: body, length: length}} when byte_size(body) > length ->
         <<trimmed_body::size(length)-bytes, extra::binary>> = body
         Body.decode(%{p | extra: extra, body: trimmed_body})
       {:ok, x} ->

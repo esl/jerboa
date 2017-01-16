@@ -34,7 +34,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, ip_6()::8, x_port::16-bits, x_ip_addr::128-bits>>
         body = <<0x0020::16, 20::16, attr::binary>>
 
-        result = XORMappedAddress.decode(%Format{identifier: identifier, body: body, length: 24}, attr)
+        result = XORMappedAddress.decode(%Format{identifier: identifier,
+                                                 body: body, length: 24}, attr)
 
         assert {:ok, %Attribute{name: XORMappedAddress, value: val}} = result
         assert val == %XORMappedAddress{
@@ -50,7 +51,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<content::size(bit_length)>>
         body = <<0x0020::16, length::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body, length: byte_size(body)}, attr)
+        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+                                                          length: byte_size(body)}, attr)
 
         assert %LengthError{length: ^length} = error
       end
@@ -64,7 +66,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, family::8, content::size(content_length)>>
         body = <<0x0020::16, length::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body, length: byte_size(body)}, attr)
+        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+                                                          length: byte_size(body)}, attr)
 
         assert %IPFamilyError{number: ^family} = error
       end
@@ -75,7 +78,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, family::8, 0::16, 0::size(addr_len)>>
         body = <<0x0020::16, byte_size(attr)::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body, length: byte_size(body)}, attr)
+        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+                                                          length: byte_size(body)}, attr)
         assert %IPArityError{family: <<^family::8>>} = error
       end
     end

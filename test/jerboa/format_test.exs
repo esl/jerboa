@@ -143,7 +143,8 @@ defmodule Jerboa.FormatTest do
       ip_4 = :crypto.exor(<<0 :: 32>>, <<0x2112A442::32>>)
       a = <<0x0020::16, 8::16, 0::8, 0x01::8, p::16-bits, ip_4::32-bits>>
 
-      got = Jerboa.Format.decode(<<0::2, 257::14, 12::16, 0x2112A442::32, i::96-bits, a::binary>>)
+      got = Jerboa.Format.decode(<<0::2, 257::14, 12::16, 0x2112A442::32,
+                                   i::96-bits, a::binary>>)
 
       assert {:ok,
               %Jerboa.Format{
