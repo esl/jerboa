@@ -1,4 +1,4 @@
-defmodule Jerboa.Format.Head.Length do
+defmodule Jerboa.Format.Header.Length do
   @moduledoc false
 
   defmodule Last2BitsError do
