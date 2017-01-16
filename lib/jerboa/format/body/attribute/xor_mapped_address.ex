@@ -5,6 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   """
 
   alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError}
   import Bitwise
   @ip_4 <<0x01::8>>
   @ip_6 <<0x02::8>>
@@ -20,23 +21,6 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     address: :inet.ip_address,
     port: :inet.port_number
   }
-
-  defmodule IPFamilyError do
-    defexception [:message, :number]
-
-    def message(%__MODULE__{number: n}) do
-      "IP family should be for 0x01 IPv4 or 0x02 for IPv6 but got 0x#{Integer.to_string(n, 16)}"
-    end
-  end
-
-  defmodule LengthError do
-    defexception [:message, :length]
-
-    def message(%__MODULE__{}) do
-      "Invalid value length. XOR Mapped Address attribute value" <>
-      "must be 8 bytes or 20 bytes long for IPv4 and IPv6 respectively"
-    end
-  end
 
   @doc false
   @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t} | {:error, struct}

@@ -41,11 +41,78 @@ defmodule Jerboa.Format do
     extra: binary
   }
 
-  defmodule LengthError do
+  defmodule HeaderLengthError do
     defexception [:message, :binary]
 
     def message(%__MODULE__{binary: b}) do
       "the STUN wire format requires a header of at least 20 bytes but got #{byte_size b} bytes"
+    end
+  end
+
+  defmodule BodyLengthError do
+    defexception [:message, :length]
+
+    def message(%__MODULE__{}) do
+      "message body is shorter than specified length"
+    end
+  end
+
+  defmodule First2BitsError do
+    defexception [:message, :bits]
+
+    def message(%__MODULE__{}) do
+      "the most significant two bits of a STUN message must be zeros"
+    end
+  end
+
+  defmodule MagicCookieError do
+    defexception [:message, :header]
+
+    def message(%__MODULE__{}) do
+      "STUN message doesn't have magic cookie"
+    end
+  end
+
+  defmodule UnknownMethodError do
+    defexception [:message, :method]
+
+    def message(%__MODULE__{method: m}) do
+      "unknown STUN method 0x#{Integer.to_string(m, 16)}"
+    end
+  end
+
+  defmodule Last2BitsError do
+    defexception [:message, :length]
+
+    def message(%__MODULE__{}) do
+      "all STUN attributes are padded to a multiple of 4 bytes so the last 2 bits of this field should be zero"
+    end
+  end
+
+  defmodule ComprehensionError do
+    defexception [:message, :attribute]
+
+    def message(%__MODULE__{attribute: n}) do
+      "can not encode/decode comprehension required attribute #{n}"
+    end
+  end
+
+  defmodule XORMappedAddress do
+    defmodule IPFamilyError do
+      defexception [:message, :number]
+
+      def message(%__MODULE__{number: n}) do
+        "IP family should be for 0x01 IPv4 or 0x02 for IPv6 but got 0x#{Integer.to_string(n, 16)}"
+      end
+    end
+
+    defmodule LengthError do
+      defexception [:message, :length]
+
+      def message(%__MODULE__{}) do
+        "Invalid value length. XOR Mapped Address attribute value" <>
+          "must be 8 bytes or 20 bytes long for IPv4 and IPv6 respectively"
+      end
     end
   end
 
@@ -81,12 +148,12 @@ defmodule Jerboa.Format do
   the binary doesn't encode a STUN message.
   """
   def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
-    {:error, LengthError.exception(binary: bin)}
+    {:error, HeaderLengthError.exception(binary: bin)}
   end
   def decode(<<header::20-binary, body::binary>>) do
     case Header.decode(%Jerboa.Format{header: header, body: body}) do
       {:ok, %Jerboa.Format{body: body, length: length}} when byte_size(body) < length ->
-        {:error, Body.LengthError.exception(length: byte_size(body))}
+        {:error, BodyLengthError.exception(length: byte_size(body))}
       {:ok, p = %Jerboa.Format{body: body, length: length}} when byte_size(body) > length ->
         <<trimmed_body::size(length)-bytes, extra::binary>> = body
         Body.decode(%{p | extra: extra, body: trimmed_body})
