@@ -16,7 +16,7 @@ defmodule Jerboa.Format.Body.Attribute do
 
   @doc false
   @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)
-    :: {:ok, t} | {:error, struct}
+    :: {:ok, t} | {:error, struct} | :ignore
   def decode(params, 0x0020, v) do
     Attribute.XORMappedAddress.decode params, v
   end
