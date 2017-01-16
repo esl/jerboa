@@ -23,4 +23,7 @@ defmodule Jerboa.Format.Body.Attribute do
   def decode(_, x, _) when x in 0x0000..0x7FFF do
     {:error, ComprehensionError.exception(attribute: x)}
   end
+  def decode(_, _, _) do
+    :ignore
+  end
 end

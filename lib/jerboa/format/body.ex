@@ -16,6 +16,8 @@ defmodule Jerboa.Format.Body do
   defp decode(params, <<t::16, s::16, c::bytes-size(s), r::binary>>, attrs) do
     v =  strip(c, padding(s))
     case Attribute.decode(params, t, v) do
+      :ignore ->
+        decode params, r, attrs
       {:ok, attr} ->
         decode params, r, attrs ++ [attr]
       {:error, _} = e ->
