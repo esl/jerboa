@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   """
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError}
+  alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
   import Bitwise
   @ip_4 <<0x01::8>>
   @ip_6 <<0x02::8>>
@@ -30,8 +30,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
     {:ok, %Attribute{name: __MODULE__, value: %__MODULE__{family: :ipv6, address: ip_6(a, i), port: port(p)}}}
   end
-  def decode(_, value) when byte_size(value) != 20 or byte_size(value) != 8 do
+  def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
     {:error, LengthError.exception(length: byte_size(value))}
+  end
+  def decode(_, <<_::8, f::8-bits, _::16, _::binary>>) when f == @ip_4 or f == @ip_6 do
+    {:error, IPArityError.exception(family: f)}
   end
   def decode(_, <<_::8, f::8, _::binary>>) do
     {:error, IPFamilyError.exception(number: f)}

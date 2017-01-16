@@ -114,6 +114,17 @@ defmodule Jerboa.Format do
           "must be 8 bytes or 20 bytes long for IPv4 and IPv6 respectively"
       end
     end
+
+    defmodule IPArityError do
+      defexception [:message, :family]
+
+      def message(%__MODULE__{family: <<0x01::8>>}) do
+        "IPv4 addresses are 4 bytes long but got 16 bytes"
+      end
+      def message(%__MODULE__{family: <<0x02::8>>}) do
+        "IPv6 addresses are 16 bytes long but got 4 bytes"
+      end
+    end
   end
 
   @spec encode(params :: t) :: binary
