@@ -6,8 +6,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
 
   alias Jerboa.Format.Body.Attribute
   import Bitwise
-  @ip_4 <<0x01 :: 8>>
-  @ip_6 <<0x02 :: 8>>
+  @ip_4 <<0x01::8>>
+  @ip_6 <<0x02::8>>
   @magic_cookie Jerboa.Format.Head.MagicCookie.value
   @most_significant_magic_16 @magic_cookie >>> 16
 
@@ -58,12 +58,12 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   end
 
   defp ip_4(x) when 32 === bit_size(x) do
-    <<a, b, c, d>> = :crypto.exor x, <<0x2112A442 :: 32>>
+    <<a, b, c, d>> = :crypto.exor x, <<0x2112A442::32>>
     {a, b, c, d}
   end
 
   defp ip_6(x, i) do
-    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442 :: 32>> <> i
+    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442::32>> <> i
     {a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}
   end
 end

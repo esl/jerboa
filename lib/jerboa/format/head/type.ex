@@ -12,16 +12,16 @@ defmodule Jerboa.Format.Head.Type do
     @type t :: :request | :indication | :success | :failure
 
     @doc false
-    def encode(:request),    do: <<0 :: 2>>
-    def encode(:indication), do: <<1 :: 2>>
-    def encode(:success),    do: <<2 :: 2>>
-    def encode(:failure),    do: <<3 :: 2>>
+    def encode(:request),    do: <<0::2>>
+    def encode(:indication), do: <<1::2>>
+    def encode(:success),    do: <<2::2>>
+    def encode(:failure),    do: <<3::2>>
 
     @doc false
-    def decode(<<0 :: 2>>), do: :request
-    def decode(<<1 :: 2>>), do: :indication
-    def decode(<<2 :: 2>>), do: :success
-    def decode(<<3 :: 2>>), do: :failure
+    def decode(<<0::2>>), do: :request
+    def decode(<<1::2>>), do: :indication
+    def decode(<<2::2>>), do: :success
+    def decode(<<3::2>>), do: :failure
   end
 
   defmodule Method do
@@ -43,11 +43,11 @@ defmodule Jerboa.Format.Head.Type do
     @type t :: :binding
 
     @doc false
-    def encode(:binding), do: <<0x0001 :: 12>>
+    def encode(:binding), do: <<0x0001::12>>
 
     @doc false
-    def decode(<<0x0001 :: 12>>), do: {:ok, :binding}
-    def decode(<<m :: 12>>),      do: {:error, UnknownError.exception(method: m)}
+    def decode(<<0x0001::12>>), do: {:ok, :binding}
+    def decode(<<m::12>>),      do: {:error, UnknownError.exception(method: m)}
   end
 
   def encode(%Jerboa.Format{class: x, method: y}) do
@@ -65,6 +65,6 @@ defmodule Jerboa.Format.Head.Type do
   end
 
   defp encode(<< c0::1, c1::1 >>, << m0::1, m1::1, m2::1, m3::1, m4::1, m5::1, m6::1, m7::1, m8::1, m9::1, m10::1, m11::1 >>) do
-    <<m0 :: 1, m1 :: 1, m2 :: 1, m3 :: 1, c0 :: 1, m4 :: 1, m5 :: 1, m6 :: 1, c1 :: 1, m7 :: 1, m8 :: 1, m9 :: 1, m10 :: 1, m11 :: 1>>
+    <<m0::1, m1::1, m2::1, m3::1, c0::1, m4::1, m5::1, m6::1, c1::1, m7::1, m8::1, m9::1, m10::1, m11::1>>
   end
 end
