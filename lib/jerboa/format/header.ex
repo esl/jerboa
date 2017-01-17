@@ -9,7 +9,7 @@ defmodule Jerboa.Format.Header do
     t = Type.encode(params)
     l = Length.encode(params)
     i = Identifier.encode(params)
-    encode t, l, i
+    %{params | header: encode(t, l, i)}
   end
 
   def decode(x = %Jerboa.Format{header: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96-bits>>}) do
