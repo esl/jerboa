@@ -48,5 +48,16 @@ defmodule Jerboa.Format.HeaderTest do
       assert 16 === bit_size x
       assert <<0, 4>> = x
     end
+
+    test "binding success response" do
+      assert <<2::6, 1>> == Header.Type.encode(%Jerboa.Format{class: :success, method: :binding})
+    end
+  end
+
+  describe "Header.*.decode/1" do
+
+    test "binding request" do
+      assert {:ok, :request, :binding} == Header.Type.decode <<0::6, 1>>
+    end
   end
 end
