@@ -50,7 +50,11 @@ defmodule Jerboa.Format.HeaderTest do
     end
 
     test "binding success response" do
-      assert <<2::6, 1>> == Header.Type.encode(%Jerboa.Format{class: :success, method: :binding})
+      params = %Jerboa.Format{class: :success, method: :binding}
+
+      bin = Header.Type.encode(params)
+
+      assert <<2::6, 1>> == bin
     end
   end
 

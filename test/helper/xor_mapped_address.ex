@@ -1,4 +1,6 @@
 defmodule Jerboa.Test.Helper.XORMappedAddress do
+  @moduledoc false
+
   alias Jerboa.Format.Body.Attribute.XORMappedAddress
 
   def struct(4) do
