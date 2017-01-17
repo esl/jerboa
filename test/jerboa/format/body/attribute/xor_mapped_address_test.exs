@@ -88,14 +88,28 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   describe "XORMappedAddress.encode/1" do
 
     test "IPv4" do
+      f = :ipv4
       a = {0, 0, 0, 0}
       p = 0
-      attr = %XORMappedAddress{family: :ipv4, address: a, port: p}
+      attr = %XORMappedAddress{family: f, address: a, port: p}
       params = %Jerboa.Format{attributes: [attr]}
 
       b = XORMappedAddress.encode(params)
 
       assert b == <<padding()::8, ip_4()::8, x_port(p)::16-bits, x_ip4_addr(a)::32-bits>>
+    end
+
+    test "IPv6" do
+      f =  :ipv6
+      a = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0}
+      p = 0
+      i = :crypto.strong_rand_bytes(div(96, 8))
+      attr = %XORMappedAddress{family: f, address: a, port: p}
+      params = %Jerboa.Format{attributes: [attr], identifier: i}
+
+      b = XORMappedAddress.encode(params)
+
+      assert b == <<padding()::8, ip_6()::8, x_port(p)::16-bits, x_ip6_addr(a, i)::128-bits>>
     end
   end
 
