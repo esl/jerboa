@@ -23,11 +23,17 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   }
 
   @doc false
+  @spec encode(Jerboa.Format.t) :: binary
+  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: f, address: a, port: p}]}) do
+    encode(f, a, p)
+  end
+
+  @doc false
   @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t}
                                                             | {:error, struct}
   def decode(_, <<_::8, @ip_4, p::16, a::32-bits>>) do
     {:ok, %Attribute{name: __MODULE__,
-                     value: %__MODULE__{family: :ipv4, address: ip_4(a), port: port(p)}}}
+                     value: %__MODULE__{family: :ipv4, address: ip_4_decode(a), port: port(p)}}}
   end
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
     {:ok, %Attribute{name: __MODULE__,
@@ -44,17 +50,32 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     {:error, IPFamilyError.exception(number: f)}
   end
 
+  defp encode(f, a, p) do
+    <<0::8, family(f)::8, port(p)::16, ip_4_encode(a)::32-bits>>
+  end
+
+  defp family(:ipv4), do: 0x01
+  defp family(:ipv6), do: 0x02
+
   defp port(x) do
     x ^^^ @most_significant_magic_16
   end
 
-  defp ip_4(x) when 32 === bit_size(x) do
+  defp ip_4_decode(x) when 32 === bit_size(x) do
     <<a, b, c, d>> = :crypto.exor x, <<0x2112A442::32>>
     {a, b, c, d}
+  end
+
+  defp ip_4_encode(x) when tuple_size(x) === 4 do
+    x |> binerize |> ip_4_decode |> binerize
   end
 
   defp ip_6(x, i) do
     <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442::32>> <> i
     {a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}
+  end
+
+  defp binerize({a, b, c, d}) do
+    <<a, b, c, d>>
   end
 end
