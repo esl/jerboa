@@ -34,3 +34,4 @@ cache:
 branches:
   only:
     - master
+    - suggest-format-module
