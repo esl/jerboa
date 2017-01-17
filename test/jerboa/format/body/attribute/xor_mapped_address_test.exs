@@ -85,6 +85,20 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     end
   end
 
+  describe "XORMappedAddress.encode/1" do
+
+    test "IPv4" do
+      a = {0, 0, 0, 0}
+      p = 0
+      attr = %XORMappedAddress{family: :ipv4, address: a, port: p}
+      params = %Jerboa.Format{attributes: [attr]}
+
+      b = XORMappedAddress.encode(params)
+
+      assert b == <<padding()::8, ip_4()::8, x_port(p)::16-bits, x_ip4_addr(a)::32-bits>>
+    end
+  end
+
   defp padding, do: 0
 
   defp ip_4, do: 0x01
