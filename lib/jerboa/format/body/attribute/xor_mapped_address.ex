@@ -24,8 +24,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
 
   @doc false
   @spec encode(Jerboa.Format.t) :: binary
-  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: f, address: a, port: p}]}) do
-    encode(f, a, p)
+  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: :ipv4, address: a, port: p}]}) do
+    encode(@ip_4, ip_4_encode(a), p)
+  end
+  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: :ipv6, address: a, port: p}], identifier: i}) do
+    encode(@ip_6, ip_6_encode(a, i), p)
   end
 
   @doc false
@@ -37,7 +40,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   end
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
     {:ok, %Attribute{name: __MODULE__,
-                     value: %__MODULE__{family: :ipv6, address: ip_6(a, i),
+                     value: %__MODULE__{family: :ipv6, address: ip_6_decode(a, i),
                                         port: port(p)}}}
   end
   def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
@@ -51,11 +54,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   end
 
   defp encode(f, a, p) do
-    <<0::8, family(f)::8, port(p)::16, ip_4_encode(a)::32-bits>>
+    <<0::8, f::8-bits, port(p)::16, a::binary>>
   end
-
-  defp family(:ipv4), do: 0x01
-  defp family(:ipv6), do: 0x02
 
   defp port(x) do
     x ^^^ @most_significant_magic_16
@@ -70,12 +70,19 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     x |> binerize |> ip_4_decode |> binerize
   end
 
-  defp ip_6(x, i) do
+  defp ip_6_encode(x, i) when tuple_size(x) === 16 do
+    x |> binerize |> ip_6_decode(i) |> binerize
+  end
+
+  defp ip_6_decode(x, i) do
     <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442::32>> <> i
     {a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}
   end
 
   defp binerize({a, b, c, d}) do
     <<a, b, c, d>>
+  end
+  defp binerize({a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}) do
+    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>>
   end
 end
