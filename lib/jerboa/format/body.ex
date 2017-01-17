@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body do
   alias Jerboa.Format.Body.Attribute
 
   def encode(params = %Jerboa.Format{attributes: a}) do
-    encode(params, a)
+    %{params | body: encode(params, a)}
   end
 
   def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}

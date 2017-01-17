@@ -11,7 +11,7 @@ defmodule Jerboa.Format.BodyTest do
     test "one (XORMappedAddress) attribute into one TLV field" do
       attr = XORMAHelper.struct(4)
 
-      bin = Body.encode %Format{attributes: [attr]}
+      %Format{body: bin} = Body.encode %Format{attributes: [attr]}
 
       assert <<_::16, 8::16, _::64>> = bin
     end

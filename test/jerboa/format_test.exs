@@ -2,6 +2,8 @@ defmodule Jerboa.FormatTest do
   use ExUnit.Case, async: true
   use Quixir
 
+  alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+
   alias Jerboa.Format
   alias Format.{HeaderLengthError,BodyLengthError}
   alias Format.{First2BitsError,MagicCookieError,UnknownMethodError,Last2BitsError}
@@ -17,6 +19,19 @@ defmodule Jerboa.FormatTest do
   @most_significant_magic_16 <<(@magic >>> 16) :: 16>>
 
   describe "Format.encode/1" do
+
+    test "body follows header with length in header" do
+      a = XORMAHelper.struct(4)
+
+      bin = Format.encode %Jerboa.Format{
+        class: :success,
+        method: :binding,
+        identifier: @i,
+        attributes: [a]}
+
+      assert body_bytes(bin) == 12
+    end
+
     test "bind request" do
       i = @i
       want = <<0::2, 1::14, 0::16, 0x2112A442::32, i::96-bits>>
@@ -172,5 +187,9 @@ defmodule Jerboa.FormatTest do
 
       assert %Format{} = Format.decode!(packet)
     end
+  end
+
+  defp body_bytes(<<_::16, x::16, _::32, _:: 96, _::size(x)-bytes>>) do
+    x
   end
 end

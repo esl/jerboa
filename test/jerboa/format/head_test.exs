@@ -3,7 +3,7 @@ defmodule Jerboa.Format.HeaderTest do
   alias Jerboa.Format.Header
   @i :crypto.strong_rand_bytes(div 96, 8)
   @struct %Jerboa.Format{class: :request, method: :binding, identifier: @i, body: <<>>}
-  @binary Header.encode(@struct)
+  @binary Map.fetch!(Header.encode(@struct), :header)
 
   describe "Header.encode/1" do
 
