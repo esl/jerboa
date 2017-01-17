@@ -15,6 +15,12 @@ defmodule Jerboa.Format.Body.Attribute do
   }
 
   @doc false
+  @spec encode(Jerboa.Format.t, struct) :: binary
+  def encode(p, a = %Attribute.XORMappedAddress{}) do
+    encode_(0x0020, Attribute.XORMappedAddress.encode(p, a))
+  end
+
+  @doc false
   @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
   def decode(params, 0x0020, v) do
@@ -25,5 +31,9 @@ defmodule Jerboa.Format.Body.Attribute do
   end
   def decode(_, _, _) do
     :ignore
+  end
+
+  defp encode_(type, value) do
+    <<type::16, byte_size(value)::16, value::binary>>
   end
 end

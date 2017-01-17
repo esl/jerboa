@@ -23,11 +23,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   }
 
   @doc false
-  @spec encode(Jerboa.Format.t) :: binary
-  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: :ipv4, address: a, port: p}]}) do
+  @spec encode(Jerboa.Format.t, t) :: binary
+  def encode(_, %__MODULE__{family: :ipv4, address: a, port: p}) do
     encode(@ip_4, ip_4_encode(a), p)
   end
-  def encode(%Jerboa.Format{attributes: [%__MODULE__{family: :ipv6, address: a, port: p}], identifier: i}) do
+  def encode(%Jerboa.Format{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
     encode(@ip_6, ip_6_encode(a, i), p)
   end
 
