@@ -1,6 +1,8 @@
 defmodule Jerboa.Format.Body.AttributeTest do
   use ExUnit.Case, async: true
+
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute
 
