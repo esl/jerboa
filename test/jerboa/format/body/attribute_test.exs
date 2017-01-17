@@ -1,15 +1,13 @@
 defmodule Jerboa.Format.Body.AttributeTest do
   use ExUnit.Case, async: true
+  alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute
 
   describe "Attribute.encode/2" do
 
     test "IPv4 XORMappedAddress as a TLV" do
-      f = :ipv4
-      a = {0, 0, 0, 0}
-      p = 0
-      attr = %Attribute.XORMappedAddress{family: f, address: a, port: p}
+      attr = XORMAHelper.struct(4)
 
       bin = Attribute.encode %Format{}, attr
 
@@ -17,12 +15,8 @@ defmodule Jerboa.Format.Body.AttributeTest do
     end
 
     test "IPv6 XORMappedAddress as a TLV" do
-      f = :ipv6
-      a = {0,0,0,0 ,0,0,0,0, 0,0,0,0, 0,0,0,0}
-      p = 0
-      i = :crypto.strong_rand_bytes(div(96, 8))
-      attr = %Attribute.XORMappedAddress{family: f, address: a, port: p}
-      params = %Format{identifier: i}
+      attr = XORMAHelper.struct(6)
+      params = %Format{identifier: XORMAHelper.i()}
 
       bin = Attribute.encode params, attr
 

@@ -2,6 +2,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   use ExUnit.Case
   use Quixir
 
+  alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+
   alias Jerboa.Format
   alias Jerboa.Format.XORMappedAddress.{IPFamilyError, LengthError, IPArityError}
   alias Jerboa.Format.Body.Attribute
@@ -88,27 +90,20 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   describe "XORMappedAddress.encode/1" do
 
     test "IPv4" do
-      f = :ipv4
-      a = {0, 0, 0, 0}
-      p = 0
-      attr = %XORMappedAddress{family: f, address: a, port: p}
+      attr = XORMAHelper.struct(4)
 
       b = XORMappedAddress.encode(%Jerboa.Format{}, attr)
 
-      assert b == <<padding()::8, ip_4()::8, x_port(p)::16-bits, x_ip4_addr(a)::32-bits>>
+      assert b == <<padding()::8, ip_4()::8, x_port()::16-bits, x_ip4_addr()::32-bits>>
     end
 
     test "IPv6" do
-      f =  :ipv6
-      a = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0}
-      p = 0
-      i = :crypto.strong_rand_bytes(div(96, 8))
-      attr = %XORMappedAddress{family: f, address: a, port: p}
-      params = %Jerboa.Format{identifier: i}
+      attr = XORMAHelper.struct(6)
+      params = %Jerboa.Format{identifier: i = XORMAHelper.i()}
 
       b = XORMappedAddress.encode(params, attr)
 
-      assert b == <<padding()::8, ip_6()::8, x_port(p)::16-bits, x_ip6_addr(a, i)::128-bits>>
+      assert b == <<padding()::8, ip_6()::8, x_port()::16-bits, x_ip6_addr(i)::128-bits>>
     end
   end
 
@@ -118,15 +113,15 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
   defp ip_6, do: 0x02
 
-  defp x_port(port) do
+  defp x_port(port \\ XORMAHelper.port()) do
     :crypto.exor(<<port::16>>, most_significant_magic_16())
   end
 
-  defp x_ip4_addr({a3, a2, a1, a0}) do
+  defp x_ip4_addr({a3, a2, a1, a0} \\ XORMAHelper.ip_4_a()) do
     :crypto.exor(<<a3::8, a2::8, a1::8, a0::8>>, MagicCookie.encode())
   end
 
-  defp x_ip6_addr(ip6_addr, identifier) do
+  defp x_ip6_addr(ip6_addr \\ XORMAHelper.ip_6_a(), identifier) do
     bin_addr = ip6_addr |> Tuple.to_list() |> :erlang.list_to_binary()
     :crypto.exor(bin_addr, MagicCookie.encode() <> identifier)
   end
