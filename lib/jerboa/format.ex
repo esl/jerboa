@@ -50,7 +50,9 @@ defmodule Jerboa.Format do
   """
   def encode(params) do
     params
+    |> Body.encode
     |> Header.encode
+    |> concatenate
   end
 
   @spec decode!(binary) :: t | no_return
@@ -89,5 +91,9 @@ defmodule Jerboa.Format do
       {:error, _} = e ->
         e
     end
+  end
+
+  defp concatenate(%__MODULE__{header: x, body: y}) do
+    x <> y
   end
 end

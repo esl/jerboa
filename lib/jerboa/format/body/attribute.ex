@@ -5,6 +5,8 @@ defmodule Jerboa.Format.Body.Attribute do
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.ComprehensionError
 
+  @biggest_16 65_535
+
   defstruct [:name, :value]
   @typedoc """
   The data structure representing a STUN attribute
@@ -13,6 +15,12 @@ defmodule Jerboa.Format.Body.Attribute do
     name: module,
     value: struct
   }
+
+  @doc false
+  @spec encode(Jerboa.Format.t, struct) :: binary
+  def encode(p, a = %Attribute.XORMappedAddress{}) do
+    encode_(0x0020, Attribute.XORMappedAddress.encode(p, a))
+  end
 
   @doc false
   @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)
@@ -25,5 +33,13 @@ defmodule Jerboa.Format.Body.Attribute do
   end
   def decode(_, _, _) do
     :ignore
+  end
+
+  defp encode_(type, value) do
+    encode(type, byte_size(value), value)
+  end
+
+  defp encode(type, length, value) when length < @biggest_16 do
+    <<type::16, length::16, value::binary>>
   end
 end

@@ -2,6 +2,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   use ExUnit.Case
   use Quixir
 
+  alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+
   alias Jerboa.Format
   alias Jerboa.Format.XORMappedAddress.{IPFamilyError, LengthError, IPArityError}
   alias Jerboa.Format.Body.Attribute
@@ -85,6 +87,33 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     end
   end
 
+  describe "XORMappedAddress.encode/1" do
+
+    test "IPv4" do
+      attr = XORMAHelper.struct(4)
+
+      bin = XORMappedAddress.encode(%Jerboa.Format{}, attr)
+
+      assert address_family(bin) === "IPv4"
+      assert address_bits(bin) === 32
+      assert x_port_number(bin) === XORMAHelper.port()
+      assert x_address(bin) == XORMAHelper.ip_4_a()
+    end
+
+    test "IPv6" do
+      i = XORMAHelper.i()
+      attr = XORMAHelper.struct(6)
+      params = %Jerboa.Format{identifier: i}
+
+      bin = XORMappedAddress.encode(params, attr)
+
+      assert address_family(bin) === "IPv6"
+      assert address_bits(bin) === 128
+      assert x_port_number(bin) === XORMAHelper.port()
+      assert x_address(bin, i) == XORMAHelper.ip_6_a()
+    end
+  end
+
   defp padding, do: 0
 
   defp ip_4, do: 0x01
@@ -123,5 +152,27 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
   defp byte do
     int(min: 0, max: 255)
+  end
+
+  defp address_family(<<_::8, 0x01::8, _::binary>>), do: "IPv4"
+  defp address_family(<<_::8, 0x02::8, _::binary>>), do: "IPv6"
+
+  defp address_bits(<<_::32, a::binary>>), do: bit_size(a)
+
+  defp x_port_number(<<_::16, p::16-bits, _::binary>>) do
+    <<x::16>> = :crypto.exor(p, most_significant_magic_16())
+    x
+  end
+
+  defp x_address(<<_::32, a::32-bits>>) do
+    tuplize(:crypto.exor(a, MagicCookie.encode()))
+  end
+
+  defp x_address(<<_::32, a::128-bits>>, identifier) do
+    tuplize(:crypto.exor(a, MagicCookie.encode() <> identifier))
+  end
+
+  defp tuplize(b) do
+    b |> :erlang.binary_to_list |> List.to_tuple
   end
 end

@@ -3,7 +3,7 @@ defmodule Jerboa.Format.HeaderTest do
   alias Jerboa.Format.Header
   @i :crypto.strong_rand_bytes(div 96, 8)
   @struct %Jerboa.Format{class: :request, method: :binding, identifier: @i, body: <<>>}
-  @binary Header.encode(@struct)
+  @binary Map.fetch!(Header.encode(@struct), :header)
 
   describe "Header.encode/1" do
 
@@ -47,6 +47,21 @@ defmodule Jerboa.Format.HeaderTest do
 
       assert 16 === bit_size x
       assert <<0, 4>> = x
+    end
+
+    test "binding success response" do
+      params = %Jerboa.Format{class: :success, method: :binding}
+
+      bin = Header.Type.encode(params)
+
+      assert <<2::6, 1>> == bin
+    end
+  end
+
+  describe "Header.*.decode/1" do
+
+    test "binding request" do
+      assert {:ok, :request, :binding} == Header.Type.decode <<0::6, 1>>
     end
   end
 end

@@ -23,16 +23,22 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   }
 
   @doc false
+  @spec encode(Jerboa.Format.t, t) :: binary
+  def encode(_, %__MODULE__{family: :ipv4, address: a, port: p}) do
+    encode(@ip_4, ip_4_encode(a), p)
+  end
+  def encode(%Jerboa.Format{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
+    encode(@ip_6, ip_6_encode(a, i), p)
+  end
+
+  @doc false
   @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t}
                                                             | {:error, struct}
   def decode(_, <<_::8, @ip_4, p::16, a::32-bits>>) do
-    {:ok, %Attribute{name: __MODULE__,
-                     value: %__MODULE__{family: :ipv4, address: ip_4(a), port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__, value: attribute(a, p)}}
   end
   def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
-    {:ok, %Attribute{name: __MODULE__,
-                     value: %__MODULE__{family: :ipv6, address: ip_6(a, i),
-                                        port: port(p)}}}
+    {:ok, %Attribute{name: __MODULE__, value: attribute(a, p, i)}}
   end
   def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
     {:error, LengthError.exception(length: byte_size(value))}
@@ -44,17 +50,52 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     {:error, IPFamilyError.exception(number: f)}
   end
 
+  defp encode(f, a, p) do
+    <<0::8, f::8-bits, port(p)::16, a::binary>>
+  end
+
+  defp attribute(a, p) do
+    %__MODULE__{
+      family: :ipv4,
+      address: ip_4_decode(a),
+      port: port(p)
+    }
+  end
+
+  defp attribute(a, p, i) do
+    %__MODULE__{
+      family: :ipv6,
+      address: ip_6_decode(a, i),
+      port: port(p)
+    }
+  end
+
   defp port(x) do
     x ^^^ @most_significant_magic_16
   end
 
-  defp ip_4(x) when 32 === bit_size(x) do
+  defp ip_4_decode(x) when 32 === bit_size(x) do
     <<a, b, c, d>> = :crypto.exor x, <<0x2112A442::32>>
     {a, b, c, d}
   end
 
-  defp ip_6(x, i) do
+  defp ip_4_encode(x) when tuple_size(x) === 4 do
+    x |> binerize |> ip_4_decode |> binerize
+  end
+
+  defp ip_6_encode(x, i) when tuple_size(x) === 16 do
+    x |> binerize |> ip_6_decode(i) |> binerize
+  end
+
+  defp ip_6_decode(x, i) do
     <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442::32>> <> i
     {a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}
+  end
+
+  defp binerize({a, b, c, d}) do
+    <<a, b, c, d>>
+  end
+  defp binerize({a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}) do
+    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>>
   end
 end

@@ -1,7 +1,22 @@
 defmodule Jerboa.Format.BodyTest do
   use ExUnit.Case, async: true
+
+  alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+  alias Jerboa.Test.Helper.Attribute, as: AHelper
+
   alias Jerboa.Format
   alias Jerboa.Format.Body
+
+  describe "Body.encode/2" do
+
+    test "one (XORMappedAddress) attribute into one TLV field" do
+      attr = XORMAHelper.struct(4)
+
+      %Format{body: bin} = Body.encode %Format{attributes: [attr]}
+
+      assert bit_size(bin) === AHelper.total(type: 16, length: 16, value: 64)
+    end
+  end
 
   describe "Body.decode/1" do
 
