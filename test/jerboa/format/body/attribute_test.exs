@@ -2,6 +2,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
   use ExUnit.Case, async: true
 
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+  alias Jerboa.Test.Helper.Attribute, as: AHelper
 
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute
@@ -14,7 +15,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
       bin = Attribute.encode %Format{}, attr
 
       assert type(bin) === 0x0020
-      assert length_(bin) === 32 + 32
+      assert length_(bin) === AHelper.total(address: 32, other: 32)
     end
 
     test "IPv6 XORMappedAddress as a TLV" do
@@ -25,7 +26,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
       bin = Attribute.encode params, attr
 
       assert type(bin) === 0x0020
-      assert length_(bin) === 32 + 128
+      assert length_(bin) === AHelper.total(address: 128, other: 32)
     end
   end
 

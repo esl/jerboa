@@ -2,6 +2,7 @@ defmodule Jerboa.Format.BodyTest do
   use ExUnit.Case, async: true
 
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
+  alias Jerboa.Test.Helper.Attribute, as: AHelper
 
   alias Jerboa.Format
   alias Jerboa.Format.Body
@@ -13,7 +14,7 @@ defmodule Jerboa.Format.BodyTest do
 
       %Format{body: bin} = Body.encode %Format{attributes: [attr]}
 
-      assert bit_size(bin) === total(type: 16, length: 16, value: 64)
+      assert bit_size(bin) === AHelper.total(type: 16, length: 16, value: 64)
     end
   end
 
@@ -42,9 +43,5 @@ defmodule Jerboa.Format.BodyTest do
 
   defp known_comprehension_optional do
     []
-  end
-
-  defp total(x) do
-    x |> Keyword.values |> Enum.sum
   end
 end
