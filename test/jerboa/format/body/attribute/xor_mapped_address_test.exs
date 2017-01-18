@@ -92,18 +92,25 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     test "IPv4" do
       attr = XORMAHelper.struct(4)
 
-      b = XORMappedAddress.encode(%Jerboa.Format{}, attr)
+      bin = XORMappedAddress.encode(%Jerboa.Format{}, attr)
 
-      assert b == <<padding()::8, ip_4()::8, x_port()::16-bits, x_ip4_addr()::32-bits>>
+      assert address_family(bin) === "IPv4"
+      assert address_bits(bin) === 32
+      assert x_port_number(bin) === XORMAHelper.port()
+      assert x_address(bin) == XORMAHelper.ip_4_a()
     end
 
     test "IPv6" do
+      i = XORMAHelper.i()
       attr = XORMAHelper.struct(6)
-      params = %Jerboa.Format{identifier: i = XORMAHelper.i()}
+      params = %Jerboa.Format{identifier: i}
 
-      b = XORMappedAddress.encode(params, attr)
+      bin = XORMappedAddress.encode(params, attr)
 
-      assert b == <<padding()::8, ip_6()::8, x_port()::16-bits, x_ip6_addr(i)::128-bits>>
+      assert address_family(bin) === "IPv6"
+      assert address_bits(bin) === 128
+      assert x_port_number(bin) === XORMAHelper.port()
+      assert x_address(bin, i) == XORMAHelper.ip_6_a()
     end
   end
 
@@ -113,15 +120,15 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
   defp ip_6, do: 0x02
 
-  defp x_port(port \\ XORMAHelper.port()) do
+  defp x_port(port) do
     :crypto.exor(<<port::16>>, most_significant_magic_16())
   end
 
-  defp x_ip4_addr({a3, a2, a1, a0} \\ XORMAHelper.ip_4_a()) do
+  defp x_ip4_addr({a3, a2, a1, a0}) do
     :crypto.exor(<<a3::8, a2::8, a1::8, a0::8>>, MagicCookie.encode())
   end
 
-  defp x_ip6_addr(ip6_addr \\ XORMAHelper.ip_6_a(), identifier) do
+  defp x_ip6_addr(ip6_addr, identifier) do
     bin_addr = ip6_addr |> Tuple.to_list() |> :erlang.list_to_binary()
     :crypto.exor(bin_addr, MagicCookie.encode() <> identifier)
   end
@@ -145,5 +152,27 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
   defp byte do
     int(min: 0, max: 255)
+  end
+
+  defp address_family(<<_::8, 0x01::8, _::binary>>), do: "IPv4"
+  defp address_family(<<_::8, 0x02::8, _::binary>>), do: "IPv6"
+
+  defp address_bits(<<_::32, a::binary>>), do: bit_size(a)
+
+  defp x_port_number(<<_::16, p::16-bits, _::binary>>) do
+    <<x::16>> = :crypto.exor(p, most_significant_magic_16())
+    x
+  end
+
+  defp x_address(<<_::32, a::32-bits>>) do
+    tuplize(:crypto.exor(a, MagicCookie.encode()))
+  end
+
+  defp x_address(<<_::32, a::128-bits>>, identifier) do
+    tuplize(:crypto.exor(a, MagicCookie.encode() <> identifier))
+  end
+
+  defp tuplize(b) do
+    b |> :erlang.binary_to_list |> List.to_tuple
   end
 end
