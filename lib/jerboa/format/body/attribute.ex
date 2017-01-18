@@ -5,6 +5,8 @@ defmodule Jerboa.Format.Body.Attribute do
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.ComprehensionError
 
+  @biggest_16 65_535
+
   defstruct [:name, :value]
   @typedoc """
   The data structure representing a STUN attribute
@@ -34,6 +36,10 @@ defmodule Jerboa.Format.Body.Attribute do
   end
 
   defp encode_(type, value) do
-    <<type::16, byte_size(value)::16, value::binary>>
+    encode(type, byte_size(value), value)
+  end
+
+  defp encode(type, length, value) when length < @biggest_16 do
+    <<type::16, length::16, value::binary>>
   end
 end
