@@ -13,16 +13,23 @@ defmodule Jerboa.Format.Body.AttributeTest do
 
       bin = Attribute.encode %Format{}, attr
 
-      assert <<0x0020::16, 8::16, _::64>> = bin
+      assert type(bin) === 0x0020
+      assert length_(bin) === 32 + 32
     end
 
     test "IPv6 XORMappedAddress as a TLV" do
+      i = XORMAHelper.i()
       attr = XORMAHelper.struct(6)
-      params = %Format{identifier: XORMAHelper.i()}
+      params = %Format{identifier: i}
 
       bin = Attribute.encode params, attr
 
-      assert <<0x0020::16, 20::16, _::160>> = bin
+      assert type(bin) === 0x0020
+      assert length_(bin) === 32 + 128
     end
   end
+
+  defp type(<<x::16, _::binary>>), do: x
+
+  defp length_(<<_::16, x::16, _::size(x)-bytes>>), do: 8 * x
 end
