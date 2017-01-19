@@ -9,6 +9,8 @@ defmodule Jerboa.Format do
   """
 
   alias Jerboa.Format.{Header,Body}
+  alias Header.Type.{Class, Method}
+  alias Body.Attribute
   alias Jerboa.Format.{HeaderLengthError, BodyLengthError}
 
   defstruct [:class, :method, :length, :identifier,
