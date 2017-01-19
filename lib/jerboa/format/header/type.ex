@@ -36,10 +36,10 @@ defmodule Jerboa.Format.Header.Type do
     @type t :: :binding
 
     @doc false
-    def encode(:binding), do: <<0x0001::12>>
+    def encode(:binding), do: <<0x001::12>>
 
     @doc false
-    def decode(<<0x0001::12>>), do: {:ok, :binding}
+    def decode(<<0x001::12>>), do: {:ok, :binding}
     def decode(<<m::12>>),      do: {:error, UnknownMethodError.exception(method: m)}
   end
 
@@ -47,17 +47,17 @@ defmodule Jerboa.Format.Header.Type do
     encode Class.encode(x), Method.encode(y)
   end
 
-  def decode(<<m0_4::5-bits, c0::1, m5_7::3-bits, c1::1, m7_10::4-bits>>) do
-    case Method.decode(<<m0_4::5-bits, m5_7::3-bits, m7_10::4-bits>>) do
+  def decode(<<m11_7::5-bits, c1::1, m6_4::3-bits, c0::1, m3_0::4-bits>>) do
+    case Method.decode(<<m11_7::5-bits, m6_4::3-bits, m3_0::4-bits>>) do
       {:ok, method} ->
-        class = Class.decode(<<c0::1, c1::1>>)
+        class = Class.decode(<<c1::1, c0::1>>)
         {:ok, class, method}
       {:error, _} = e ->
         e
     end
   end
 
-  defp encode(<<c0::1, c1::1 >>, << m0_3::4, m4_6::3, m7_11::5>>) do
-    <<m0_3::4, c0::1, m4_6::3, c1::1, m7_11::5>>
+  defp encode(<<c1::1, c0::1 >>, <<m11_7::5, m6_4::3, m3_0::4>>) do
+    <<m11_7::5, c1::1, m6_4::3, c0::1, m3_0::4>>
   end
 end

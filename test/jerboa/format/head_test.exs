@@ -54,7 +54,7 @@ defmodule Jerboa.Format.HeaderTest do
 
       bin = Header.Type.encode(params)
 
-      assert <<2::6, 1>> == bin
+      assert <<4, 1::6>> == bin
     end
   end
 
