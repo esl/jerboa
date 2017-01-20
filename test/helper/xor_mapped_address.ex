@@ -15,7 +15,7 @@ defmodule Jerboa.Test.Helper.XORMappedAddress do
   end
 
   def ip_6_a do
-    :erlang.make_tuple(16, 0)
+    :erlang.make_tuple(8, 0)
   end
 
   def port, do: 0

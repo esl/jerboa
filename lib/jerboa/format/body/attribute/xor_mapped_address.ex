@@ -83,19 +83,20 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     x |> binerize |> ip_4_decode |> binerize
   end
 
-  defp ip_6_encode(x, i) when tuple_size(x) === 16 do
+  defp ip_6_encode(x, i) when tuple_size(x) === 8 do
     x |> binerize |> ip_6_decode(i) |> binerize
   end
 
   defp ip_6_decode(x, i) do
-    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>> = :crypto.exor x, <<0x2112A442::32>> <> i
-    {a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}
+    <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>> =
+      :crypto.exor(x, <<0x2112A442::32>> <> i)
+    {a, b, c, d, e, f, g, h}
   end
 
   defp binerize({a, b, c, d}) do
     <<a, b, c, d>>
   end
-  defp binerize({a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p}) do
-    <<a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p>>
+  defp binerize({a, b, c, d, e, f, g, h}) do
+    <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>>
   end
 end
