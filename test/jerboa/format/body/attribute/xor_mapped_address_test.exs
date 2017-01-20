@@ -129,7 +129,8 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   end
 
   defp x_ip6_addr(ip6_addr, identifier) do
-    bin_addr = ip6_addr |> Tuple.to_list() |> :erlang.list_to_binary()
+    {a, b, c, d, e, f, g, h} = ip6_addr
+    bin_addr = <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>>
     :crypto.exor(bin_addr, MagicCookie.encode() <> identifier)
   end
 
@@ -147,11 +148,15 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   end
 
   defp ip6_gen do
-    tuple(like: :erlang.make_tuple(16, byte()))
+    tuple(like: :erlang.make_tuple(8, two_bytes()))
   end
 
   defp byte do
     int(min: 0, max: 255)
+  end
+
+  defp two_bytes do
+    int(min: 0, max: 65_535)
   end
 
   defp address_family(<<_::8, 0x01::8, _::binary>>), do: "IPv4"
@@ -165,14 +170,13 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   end
 
   defp x_address(<<_::32, a::32-bits>>) do
-    tuplize(:crypto.exor(a, MagicCookie.encode()))
+    <<a, b, c, d>> = :crypto.exor(a, MagicCookie.encode())
+    {a, b, c, d}
   end
 
   defp x_address(<<_::32, a::128-bits>>, identifier) do
-    tuplize(:crypto.exor(a, MagicCookie.encode() <> identifier))
-  end
-
-  defp tuplize(b) do
-    b |> :erlang.binary_to_list |> List.to_tuple
+    <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>> =
+      :crypto.exor(a, MagicCookie.encode() <> identifier)
+    {a, b, c, d, e, f, g, h}
   end
 end
