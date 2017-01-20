@@ -2,7 +2,9 @@ defmodule Jerboa do
   @moduledoc """
   STUN/TURN encoder, decoder and client library
 
-  For the client utilities, see `Jerboa.Client`
+  Jerboa consists of two components:
+  * `Jerboa.Format` encoding, decoding and validation of STUN messages
+  * `Jerboa.Client` client processes talking to STUN/TURN servers
   """
 
 end
