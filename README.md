@@ -8,6 +8,46 @@
 
 STUN/TURN encoder, decoder and client library
 
+### Checklist of STUN/TURN/ICE methods supported by Jerboa's encoder/decoder
+
+- [x] Binding
+- [ ] Allocate
+- [ ] Refresh
+- [ ] Send
+- [ ] Data
+- [ ] CreatePermission
+- [ ] ChannelBind
+
+### Checklist of STUN/TURN/ICE attributes supported by Jerboa' encoder/decoder
+
+#### Comprehension-required range
+
+- [x] XOR-MAPPED-ADDRESS
+- [ ] MESSAGE-INTEGRITY
+- [ ] ERROR-CODE
+- [ ] UNKNOWN-ATTRIBUTES
+- [ ] REALM
+- [ ] NONCE
+- [ ] CHANNEL-NUMBER
+- [ ] LIFETIME
+- [ ] XOR-PEER-ADDRESS
+- [ ] DATA
+- [ ] XOR-RELAYED-ADDRESS
+- [ ] EVEN-PORT
+- [ ] REQUESTED-TRANSPORT
+- [ ] DONT-FRAGMENT
+- [ ] RESERVATION-TOKEN
+- [ ] PRIORITY
+- [ ] USE-CANDIDATE
+- [ ] ICE-CONTROLLED
+- [ ] ICE-CONTROLLING
+
+#### Comprehension-optional range
+
+- [ ] SOFTWARE
+- [ ] ALTERNATE-SERVER
+- [ ] FINGERPRINT
+
 ## License
 
 Copyright 2016-2017 Erlang Solutions Ltd.
