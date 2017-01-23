@@ -1,12 +1,16 @@
 defmodule Jerboa.Format.HeaderLengthError do
   @moduledoc """
+
   Error indicating STUN message with header of invalid length
 
-  STUN messages have fixed header of 20 bytes, so any message shorter
-  than that will produce this error when passed to `Jerboa.Format.decode/1`.
+  STUN messages have a fixed header of 20 bytes, so any message
+  shorter than that will produce this error when passed to
+  `Jerboa.Format.decode/1`.
 
   Exception struct fields:
+
   * `:binary` - whole STUN message which produced this error
+
   """
 
   defexception [:message, :binary]
@@ -21,14 +25,19 @@ end
 
 defmodule Jerboa.Format.BodyLengthError do
   @moduledoc """
-  Error indicating STUN message with body shorter than declared in header
 
-  Each STUN message contains length of its body encoded in a header.
-  If a message body is shorter than declared in header it cannot be
-  decoded correctly and will produce this error when passed to `Jerboa.Format.decode/1`
+  Error indicating STUN message with body shorter than that declared
+  in header
+
+  Each STUN message contains the length of its body encoded in the
+  header. If a message body is shorter than that declared in the
+  header it cannot be decoded correctly and will produce this error
+  when passed to `Jerboa.Format.decode/1`.
 
   Excepton struct fields:
+
   * `:length` - actual length of message body
+
   """
 
   defexception [:message, :length]
@@ -41,14 +50,18 @@ end
 
 defmodule Jerboa.Format.First2BitsError do
   @moduledoc """
-  Error indicating wrong value encoded in first to bits of STUN message
 
-  STUN message header must start with two zeroed bits. If it doesn't,
-  this error is produced when decoding the message.
+  Error indicating wrong value encoded in first two bits of STUN
+  message
+
+  A STUN message header must start with two zero (clear) bits. If it
+  doesn't this error is produced when decoding the message.
 
   Exception struct fields:
+
   * `:bits` - a 2 bit long bitstring with the value of first two bits
   of a message
+
   """
 
   defexception [:message, :bits]
@@ -62,14 +75,18 @@ end
 
 defmodule Jerboa.Format.MagicCookieError do
   @moduledoc """
-  Error indicating that STUN magic cookie does not have magic cookie value
 
-  Second 4 bytes of each STUN message header must have fixed value of
-  `0x2112A442`. If not, the binary can't be indetified as STUN message
-  and this error is produced.
+  Error indicating that the message does not encode the magic cookie
+  value
+
+  The second 4 bytes of each STUN message header have a fixed value of
+  `0x2112A442` otherwise the message can't be identified as a STUN
+  message and this error is produced.
 
   Exception struct fields:
+
   * `:header` - whole 20 byte header of invalid message
+
   """
 
   defexception [:message, :header]
@@ -82,14 +99,17 @@ end
 
 defmodule Jerboa.Format.UnknownMethodError do
   @moduledoc """
-  Error indicating that STUN message method is unknown to Jerboa
 
-  STUN methods are (along with classes) a primary indicators of
-  how message should be processed. If the method is unknown,
-  STUN agent won't know how to react to the message.
+  Error indicating that the STUN message method is unknown to Jerboa
+
+  STUN methods are (along with classes) the primary indicator of how
+  messages should be processed. If the method is unknown the STUN
+  agent won't know how to service to the message.
 
   Exception struct fields:
-  * `:method` - integer with a value of unknown method
+
+  * `:method` - integer with a value of the unknown method
+
   """
 
   defexception [:message, :method]
@@ -103,15 +123,20 @@ end
 
 defmodule Jerboa.Format.Last2BitsError do
   @moduledoc """
-  Error indicating that last two bits of STUN message length field are
-  not zeroes
 
-  STUN messages must be padded to a multiple of 4 bytes, so length field
-  encoded in message header must be a multiple of 4. Binary representation
-  of numbers divisible by 4 always always have last two bits set to 0.
+  Error indicating that the last two bits of the STUN message length
+  field are not zeroes (clear)
+
+  STUN messages must be padded to a multiple of 4 bytes, so the length
+  value encoded in the message header must be a multiple of 4. The
+  binary representation of numbers divisible by 4 always have the last
+  two bits set to 0. This serves as another distinguishing feature, at
+  least, of a correctly formed STUN message.
 
   Exception struct fields:
-  * `:length` - value of length field in message header
+
+  * `:length` - value of the length field in the message header
+
   """
 
   defexception [:message, :length]
@@ -125,14 +150,18 @@ end
 
 defmodule Jerboa.Format.ComprehensionError do
   @moduledoc """
-  Error indicating that STUN message contained comprehension-required
-  attribute unknown to Jerboa
 
-  If STUN message contains unknown comprehension-required attribute
-  it cannot be successfully processed by a STUN agent.
+  Error indicating that the STUN message contained a
+  comprehension-required attribute unknown to Jerboa
+
+  If the STUN message contains a comprehension-required attribute
+  which is unknown to the STUN agent then it cannot be successfully
+  processed.
 
   Exception struct fields:
-  * `:attribute` - integer with a value of unknown attribute
+
+  * `:attribute` - integer value of the unknown attribute
+
   """
 
   defexception [:message, :attribute]
@@ -149,13 +178,17 @@ defmodule Jerboa.Format.XORMappedAddress do
 
   defmodule IPFamilyError do
     @moduledoc """
-    Error indicating that address family encoded in XOR-MAPPED-ADDRESS
-    attribute's value is invalid
+
+    Error indicating that the IP address family encoded in the
+    XOR-MAPPED-ADDRESS attribute's value is invalid
 
     Valid address families are 0x01 for IPv4 and 0x02 for IPv6.
 
     Exception struct fields:
-    * `:number` - address family number encoded in attribute's value
+
+    * `:number` - address family number encoded in the attribute's
+      value
+
     """
 
     defexception [:message, :number]
@@ -170,14 +203,17 @@ defmodule Jerboa.Format.XORMappedAddress do
 
   defmodule LengthError do
     @moduledoc """
-    Error indicating that XOR-MAPPED-ADDRESS attribute's value has
-    invalid length
 
-    Possible length of XOR-MAPPED-ADDRESS are 8 bytes for IPv4
+    Error indicating that the XOR-MAPPED-ADDRESS attribute has invalid
+    length
+
+    The XOR-MAPPED-ADDRESS attribute is encoded into 8 bytes for IPv4
     and 20 bytes for IPv6.
 
     Exception struct fields:
-    * `:length` - length of attribute's value found in a message
+
+    * `:length` - length of attribute's value found in the message
+
     """
 
     defexception [:message, :length]
@@ -191,15 +227,18 @@ defmodule Jerboa.Format.XORMappedAddress do
 
   defmodule IPArityError do
     @moduledoc """
-    Error indicating that address family and IP address of
-    XOR-MAPPED-ADDRESS are not matching
 
-    For example, address family value is 0x01 (IPv4) while length
-    of an address is 16 bytes, as in IPv6.
+    Error indicating that the IP address family and IP address length
+    of the XOR-MAPPED-ADDRESS attribute don't make sense
+
+    For example: the IP address family value may be 0x01 (IPv4) while
+    the length of an address is 16 bytes, as in IPv6.
 
     Exception struct fields:
-    * `:family` - binary with a value of address family of XOR-MAPPED-ADDRESS
-    (either `<<0x01>>` or `<<0x02>>`)
+
+    * `:family` - the IP address family given in the
+      XOR-MAPPED-ADDRESS attribute (either `<<0x01>>` or `<<0x02>>`)
+
     """
 
     defexception [:message, :family]

@@ -18,9 +18,9 @@ STUN/TURN encoder, decoder and client library
 - [ ] CreatePermission
 - [ ] ChannelBind
 
-### Checklist of STUN/TURN/ICE attributes supported by Jerboa' encoder/decoder
+### Checklist of STUN/TURN/ICE attributes supported by Jerboa's encoder/decoder
 
-#### Comprehension-required range
+#### Comprehension Required
 
 - [x] XOR-MAPPED-ADDRESS
 - [ ] MESSAGE-INTEGRITY
@@ -42,7 +42,7 @@ STUN/TURN encoder, decoder and client library
 - [ ] ICE-CONTROLLED
 - [ ] ICE-CONTROLLING
 
-#### Comprehension-optional range
+#### Comprehension Optional
 
 - [ ] SOFTWARE
 - [ ] ALTERNATE-SERVER
