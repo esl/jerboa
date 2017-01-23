@@ -2,7 +2,9 @@ defmodule Jerboa do
   @moduledoc """
   STUN/TURN encoder, decoder and client library
 
-  For the client utilities, see `Jerboa.Client`
+  Jerboa consists of two components:
+  * `Jerboa.Format` an encoding & decoding library for the STUN wire format
+  * `Jerboa.Client` an Elixir STUN/TURN client
   """
 
 end

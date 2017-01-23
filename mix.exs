@@ -34,7 +34,8 @@ defmodule Jerboa.Mixfile do
   end
 
   defp docs do
-    [main: "Jerboa"]
+    [main: "Readme",
+     extras: ["README.md": [title: "Jerboa"]]]
   end
 
   defp dialyzer do
