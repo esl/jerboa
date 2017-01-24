@@ -32,21 +32,10 @@ defmodule Jerboa.FormatTest do
 
       assert body_bytes(bin) == 12
     end
-
-    test "bind request" do
-      i = @i
-      want = <<0::2, 1::14, 0::16, 0x2112A442::32, i::96-bits>>
-      got = Format.encode %Params{
-        class: :request,
-        method: :binding,
-        identifier: @i,
-        body: <<>>}
-
-      assert want == got
-    end
   end
 
   describe "Format.decode/1" do
+
     test "fails given packet with not enough bytes for header" do
       ptest length: int(min: 0, max: 19), content: int(min: 0) do
         byte_length = length * 8
@@ -151,28 +140,6 @@ defmodule Jerboa.FormatTest do
 
         assert ^extra = message.extra
       end
-    end
-
-    test "bind response" do
-      i = @i
-      p = :crypto.exor(<<0 :: 16>>, @most_significant_magic_16)
-      ip_4 = :crypto.exor(<<0 :: 32>>, <<0x2112A442::32>>)
-      a = <<0x0020::16, 8::16, 0::8, 0x01::8, p::16-bits, ip_4::32-bits>>
-
-      got = Jerboa.Format.decode(<<0::2, 257::14, 12::16, 0x2112A442::32,
-                                   i::96-bits, a::binary>>)
-
-      assert {:ok,
-              %Params{
-                class: :success,
-                method: :binding,
-                attributes: [x]}} = got
-      assert %Attribute{
-        name: Attribute.XORMappedAddress,
-        value: %Attribute.XORMappedAddress{
-          family: :ipv4,
-          address: {0,0,0,0},
-          port: 0}} == x
     end
   end
 
