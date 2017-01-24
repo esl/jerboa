@@ -3,15 +3,14 @@ defmodule JerboaTest do
 
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Params
+  alias Jerboa.Test.Helper.Server, as: ServerHelper
 
   @moduletag system: true
-  @google_ip {74, 125, 143, 127}
-  @google_port 19_302
 
   test "binding request and response on UDP" do
     {:ok, socket} = :gen_udp.open(4096, [:binary, active: false])
 
-    :ok = :gen_udp.send(socket, @google_ip, @google_port, binding_request())
+    :ok = :gen_udp.send(socket, ServerHelper.address(), ServerHelper.port(), binding_request())
     {:ok, {_, _, response}} = :gen_udp.recv(socket, 0)
     :ok = :gen_udp.close(socket)
 
