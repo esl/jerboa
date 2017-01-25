@@ -2,42 +2,33 @@ defmodule Jerboa.Format.HeaderTest do
   use ExUnit.Case, async: true
 
   alias Jerboa.Format.Header
-  alias Jerboa.Format.{First2BitsError, MagicCookieError, UnknownMethodError, Last2BitsError}
+  alias Jerboa.Format.{First2BitsError,
+    MagicCookieError, UnknownMethodError, Last2BitsError}
   alias Jerboa.Format.Header.{MagicCookie, Type.Method, Type.Class}
   alias Jerboa.Format.Header
   alias Jerboa.Params
   use Quixir
 
-  @i :crypto.strong_rand_bytes(div 96, 8)
-  @struct %Params{class: :request, method: :binding, identifier: @i, body: <<>>}
-  @binary Map.fetch!(Header.encode(@struct), :header)
   @magic MagicCookie.value
 
   describe "Header.encode/1" do
 
-    test "header is correct length" do
-      assert 20 === byte_size @binary
-    end
+    test "header has all five pieces (and reasonable values)" do
 
-    test "two leading clear bits" do
-      assert <<0::2, _::14, _::16, _::32, _::96>> = @binary
-    end
+      ## Given:
+      alias Jerboa.Test.Helper.Format, as: FormatHelper
+      parameters = FormatHelper.binding_request()
 
-    test "(bind request) method and class type in correct place" do
-      assert <<_::2, 1::14, _::16, _::32, _::96>> = @binary
-    end
+      ## When:
+      %Jerboa.Format{header: bin} = Header.encode(parameters)
 
-    test "correct body length in correct place" do
-      assert <<_::2, _::14, 0::16, _::32, _::96>> = @binary
-    end
-
-    test "magic cookie in correct place" do
-      assert <<_::2, _::14, _::16, 0x2112A442::32, _::96>> = @binary
-    end
-
-    test "correct identifier in correct place" do
-      i = @i
-      assert <<_::2, _::14, _::16, _::32, ^i::96-bits>> = @binary
+      ## Then:
+      assert byte_size(bin) === 20
+      assert first_2_bits(bin) === <<0::2>>
+      assert type(bin) === 1
+      assert body_bytes(bin) === 0
+      assert magic_cookie(bin) === 0x2112A442
+      assert identifier(bin) === parameters.identifier
     end
   end
 
@@ -142,5 +133,25 @@ defmodule Jerboa.Format.HeaderTest do
 
   defp parameterize(x) do
     %Jerboa.Format{header: x}
+  end
+
+  defp first_2_bits(<<x::2-bits, _::bits>>) do
+    x
+  end
+
+  defp type(<<_::2, x::14, _::144>>) do
+    x
+  end
+
+  defp body_bytes(<<_::16, x::16, _::128>>) do
+    x
+  end
+
+  defp magic_cookie(<<_::32, x::32, _::96>>) do
+    x
+  end
+
+  defp identifier(<<_::64, x::96-bits>>) do
+    x
   end
 end

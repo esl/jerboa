@@ -5,7 +5,7 @@ defmodule Jerboa.Test.Helper.Format do
     %Jerboa.Params{
       class: :request,
       method: :binding,
-      identifier: :crypto.strong_rand_bytes(div 96, 8),
+      identifier: Jerboa.Test.Helper.Header.i(),
       body: <<>>
     }
   end
