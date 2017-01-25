@@ -44,12 +44,11 @@ defmodule Jerboa.Format.HeaderTest do
   describe "Header.decode/1" do
 
     test "fails given packet not starting with two zeroed bits" do
-      ptest first_two: int(min: 1, max: 3), content: int(min: 0),
-            length: int(min: 20) do
-        bit_length = length * 8 - 2
+      ptest first_two: int(min: 1, max: 3), content: int(min: 0) do
+        bit_length = 20 * 8 - 2
         packet = <<first_two::2, content::size(bit_length)>>
 
-        {:error, error} = Jerboa.Format.decode packet
+        {:error, error} = Header.decode parameterize(packet)
 
         assert %First2BitsError{bits: ^first_two} = error
       end
@@ -57,24 +56,23 @@ defmodule Jerboa.Format.HeaderTest do
 
     test "fails given packet with invalid STUN magic cookie" do
       ptest before_magic: int(min: 0), magic: int(min: 0, max: @magic - 1),
-            after_magic: int(min: 0), length: int(min: 12) do
+            after_magic: int(min: 0) do
         packet = <<0::2, before_magic::30, magic::32,
-                   after_magic::unit(8)-size(length)>>
+                   after_magic::unit(8)-size(12)>>
         <<header::20-bytes, _::binary>> = packet
 
-        {:error, error} = Jerboa.Format.decode packet
+        {:error, error} = Header.decode parameterize(packet)
 
         assert %MagicCookieError{header: ^header} = error
       end
     end
 
     test "fails if length isn't a multiple of 4" do
-      ptest length: int(min: 0), content: int(min: 0) do
+      ptest length: int(min: 0) do
         length = if rem(length, 4) == 0, do: length + 1, else: length
-        packet = <<0::2, 1::14, length::16, @magic::32, 0::96,
-                  content::size(length)-unit(8)>>
+        packet = <<0::2, 1::14, length::16, @magic::32, 0::96>>
 
-        {:error, error} = Jerboa.Format.decode packet
+        {:error, error} = Header.decode parameterize(packet)
 
         assert %Last2BitsError{length: ^length} = error
       end
@@ -87,7 +85,7 @@ defmodule Jerboa.Format.HeaderTest do
         packet = <<0::2, m2::5, c1::1, m1::3, c0::1, m0::4, 0::16,
                    @magic::32, 0::96>>
 
-        {:error, error} = Jerboa.Format.decode packet
+        {:error, error} = Header.decode parameterize(packet)
 
         assert %UnknownMethodError{method: ^method} = error
       end
@@ -102,7 +100,7 @@ defmodule Jerboa.Format.HeaderTest do
         decoded_class = Class.decode(bit_class)
         {:ok, decoded_method} = Method.decode(bit_method)
 
-        {:ok, message} = Jerboa.Format.decode packet
+        {:ok, message} = Header.decode parameterize(packet)
 
         assert decoded_method == message.method
         assert decoded_class == message.class
@@ -140,5 +138,9 @@ defmodule Jerboa.Format.HeaderTest do
     test "binding request" do
       assert {:ok, :request, :binding} == Header.Type.decode <<0::6, 1>>
     end
+  end
+
+  defp parameterize(x) do
+    %Jerboa.Format{header: x}
   end
 end
