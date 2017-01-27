@@ -4,11 +4,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
-  alias Jerboa.Format
   alias Jerboa.Format.XORMappedAddress.{IPFamilyError, LengthError, IPArityError}
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.XORMappedAddress
   alias Jerboa.Format.Header.MagicCookie
+  alias Jerboa.Params
 
   describe "decode/2" do
     test "IPv4 XORMappedAddress attribute" do
@@ -18,7 +18,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, ip_4()::8, x_port::16-bits, x_ip_addr::32-bits>>
         body = <<0x0020::16, 8::16, attr::binary>>
 
-        result = XORMappedAddress.decode(%Format{body: body, length: 12}, attr)
+        result = XORMappedAddress.decode(%Params{body: body, length: 12}, attr)
 
         assert {:ok, %Attribute{name: XORMappedAddress, value: val}} = result
         assert val == %XORMappedAddress{
@@ -36,7 +36,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, ip_6()::8, x_port::16-bits, x_ip_addr::128-bits>>
         body = <<0x0020::16, 20::16, attr::binary>>
 
-        result = XORMappedAddress.decode(%Format{identifier: identifier,
+        result = XORMappedAddress.decode(%Params{identifier: identifier,
                                                  body: body, length: 24}, attr)
 
         assert {:ok, %Attribute{name: XORMappedAddress, value: val}} = result
@@ -53,7 +53,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<content::size(bit_length)>>
         body = <<0x0020::16, length::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+        {:error, error} = XORMappedAddress.decode(%Params{body: body,
                                                           length: byte_size(body)}, attr)
 
         assert %LengthError{length: ^length} = error
@@ -68,7 +68,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, family::8, content::size(content_length)>>
         body = <<0x0020::16, length::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+        {:error, error} = XORMappedAddress.decode(%Params{body: body,
                                                           length: byte_size(body)}, attr)
 
         assert %IPFamilyError{number: ^family} = error
@@ -80,7 +80,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         attr = <<padding()::8, family::8, 0::16, 0::size(addr_len)>>
         body = <<0x0020::16, byte_size(attr)::16, attr::binary>>
 
-        {:error, error} = XORMappedAddress.decode(%Format{body: body,
+        {:error, error} = XORMappedAddress.decode(%Params{body: body,
                                                           length: byte_size(body)}, attr)
         assert %IPArityError{family: <<^family::8>>} = error
       end
@@ -92,7 +92,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     test "IPv4" do
       attr = XORMAHelper.struct(4)
 
-      bin = XORMappedAddress.encode(%Jerboa.Format{}, attr)
+      bin = XORMappedAddress.encode(%Params{}, attr)
 
       assert address_family(bin) === "IPv4"
       assert address_bits(bin) === 32
@@ -103,7 +103,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     test "IPv6" do
       i = XORMAHelper.i()
       attr = XORMAHelper.struct(6)
-      params = %Jerboa.Format{identifier: i}
+      params = %Params{identifier: i}
 
       bin = XORMappedAddress.encode(params, attr)
 

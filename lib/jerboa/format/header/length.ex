@@ -1,8 +1,10 @@
 defmodule Jerboa.Format.Header.Length do
   @moduledoc false
-  alias Jerboa.Format.Last2BitsError
 
-  def encode(%Jerboa.Format{body: b}) when is_binary(b) do
+  alias Jerboa.Format.Last2BitsError
+  alias Jerboa.Params
+
+  def encode(%Params{body: b}) when is_binary(b) do
     <<byte_size(b)::integer-unit(8)-size(2)>>
   end
 

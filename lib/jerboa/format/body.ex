@@ -2,13 +2,14 @@ defmodule Jerboa.Format.Body do
   @moduledoc false
 
   alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Params
 
-  def encode(params = %Jerboa.Format{attributes: a}) do
+  def encode(params = %Params{attributes: a}) do
     %{params | body: encode(params, a)}
   end
 
-  def decode(params = %Jerboa.Format{length: 0, body: <<>>}), do: {:ok, params}
-  def decode(params = %Jerboa.Format{body: body}) do
+  def decode(params = %Params{length: 0, body: <<>>}), do: {:ok, params}
+  def decode(params = %Params{body: body}) do
     case decode(params, body, []) do
       {:ok, attributes} ->
         {:ok, %{params | attributes: attributes}}

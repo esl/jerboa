@@ -2,8 +2,10 @@ defmodule Jerboa.Format.Body.Attribute do
   @moduledoc """
   STUN protocol attributes
   """
+
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.ComprehensionError
+  alias Jerboa.Params
 
   @biggest_16 65_535
 
@@ -17,13 +19,13 @@ defmodule Jerboa.Format.Body.Attribute do
   }
 
   @doc false
-  @spec encode(Jerboa.Format.t, struct) :: binary
+  @spec encode(Params.t, struct) :: binary
   def encode(p, a = %Attribute.XORMappedAddress{}) do
     encode_(0x0020, Attribute.XORMappedAddress.encode(p, a))
   end
 
   @doc false
-  @spec decode(params :: Jerboa.Format.t, type :: non_neg_integer, value :: binary)
+  @spec decode(Params.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
   def decode(params, 0x0020, v) do
     Attribute.XORMappedAddress.decode params, v

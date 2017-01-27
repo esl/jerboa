@@ -6,13 +6,17 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
 
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
+  alias Jerboa.Params
+
   import Bitwise
+
   @ip_4 <<0x01::8>>
   @ip_6 <<0x02::8>>
   @magic_cookie Jerboa.Format.Header.MagicCookie.value
   @most_significant_magic_16 @magic_cookie >>> 16
 
   defstruct [:family, :address, :port]
+
   @typedoc """
   A client's reflexive transport address
   """
@@ -23,21 +27,21 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   }
 
   @doc false
-  @spec encode(Jerboa.Format.t, t) :: binary
+  @spec encode(Params.t, t) :: binary
   def encode(_, %__MODULE__{family: :ipv4, address: a, port: p}) do
     encode(@ip_4, ip_4_encode(a), p)
   end
-  def encode(%Jerboa.Format{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
+  def encode(%Params{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
     encode(@ip_6, ip_6_encode(a, i), p)
   end
 
   @doc false
-  @spec decode(params :: Jerboa.Format.t, value :: binary) :: {:ok, Attribute.t}
-                                                            | {:error, struct}
+  @spec decode(Params.t, value :: binary) :: {:ok, Attribute.t}
+                                           | {:error, struct}
   def decode(_, <<_::8, @ip_4, p::16, a::32-bits>>) do
     {:ok, %Attribute{name: __MODULE__, value: attribute(a, p)}}
   end
-  def decode(%Jerboa.Format{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
+  def decode(%Params{identifier: i}, <<_::8, @ip_6, p::16, a::128-bits>>) do
     {:ok, %Attribute{name: __MODULE__, value: attribute(a, p, i)}}
   end
   def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
