@@ -4,11 +4,11 @@ defmodule Jerboa.Test.Helper do
   defmodule Server do
     @moduledoc false
 
-    def a do
+    def address do
       configuration(:address)
     end
 
-    def p do
+    def port do
       configuration(:port)
     end
 

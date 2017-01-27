@@ -10,23 +10,29 @@ defmodule Jerboa.Format.HeaderTest do
   use Quixir
 
   @magic MagicCookie.value
+  @helpers [first_2_bits: 1,
+            type: 1,
+            magic_cookie: 1,
+            identifier: 1
+           ]
 
   describe "Header.encode/1" do
 
     test "header has all five pieces (and reasonable values)" do
 
       ## Given:
+      import Jerboa.Test.Helper.Header, only: @helpers
       alias Jerboa.Test.Helper.Format, as: FormatHelper
       parameters = FormatHelper.binding_request()
 
       ## When:
-      %Jerboa.Format{header: bin} = Header.encode(parameters)
+      %Jerboa.Params{header: bin} = Header.encode(parameters)
 
       ## Then:
       assert byte_size(bin) === 20
       assert first_2_bits(bin) === <<0::2>>
       assert type(bin) === 1
-      assert body_bytes(bin) === 0
+      assert FormatHelper.bytes_for_body(bin) === 0
       assert magic_cookie(bin) === 0x2112A442
       assert identifier(bin) === parameters.identifier
     end
@@ -132,26 +138,6 @@ defmodule Jerboa.Format.HeaderTest do
   end
 
   defp parameterize(x) do
-    %Jerboa.Format{header: x}
-  end
-
-  defp first_2_bits(<<x::2-bits, _::bits>>) do
-    x
-  end
-
-  defp type(<<_::2, x::14, _::144>>) do
-    x
-  end
-
-  defp body_bytes(<<_::16, x::16, _::128>>) do
-    x
-  end
-
-  defp magic_cookie(<<_::32, x::32, _::96>>) do
-    x
-  end
-
-  defp identifier(<<_::64, x::96-bits>>) do
-    x
+    %Jerboa.Params{header: x}
   end
 end

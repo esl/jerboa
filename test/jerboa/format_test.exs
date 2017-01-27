@@ -8,21 +8,25 @@ defmodule Jerboa.FormatTest do
   alias Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Format.Header.MagicCookie
 
-  @i :crypto.strong_rand_bytes(div 96, 8)
   @magic MagicCookie.value
 
   describe "Format.encode/1" do
 
     test "body follows header with length in header" do
+
+      ## Given:
+      import Jerboa.Test.Helper.Header, only: [identifier: 0]
       a = XORMAHelper.struct(4)
 
+      ## When:
       bin = Format.encode %Params{
         class: :success,
         method: :binding,
-        identifier: @i,
+        identifier: identifier(),
         attributes: [a]}
 
-      assert body_bytes(bin) == 12
+      ## Then:
+      assert Jerboa.Test.Helper.Format.bytes_for_body(bin) == 12
     end
   end
 
@@ -81,9 +85,5 @@ defmodule Jerboa.FormatTest do
 
       assert %Params{} = Format.decode!(packet)
     end
-  end
-
-  defp body_bytes(<<_::16, x::16, _::32, _:: 96, _::size(x)-bytes>>) do
-    x
   end
 end
