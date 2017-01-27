@@ -146,11 +146,12 @@ defmodule Jerboa.Params do
   @doc """
   Puts single attribute in params struct
 
-  If given attribute was already present, it will be overriden.
+  If given attribute was already present, it will be overriden, so
+  that there are no duplicates.
 
-  When this function is given plain attribute struct, not wrapped
-  in `Jerboa.Body.Attribute`, the name of attribute will be inferred
-  from struct name.
+  When this function is given plain attribute struct, not wrapped in
+  `Jerboa.Body.Attribute`, the name of attribute is inferred from
+  struct name.
   """
   @spec put_attr(t, Attribute.t | struct) :: t
   def put_attr(params, %Attribute{name: name} = attr) do
