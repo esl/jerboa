@@ -1,8 +1,11 @@
 defmodule Jerboa.Format.HeaderTest do
   use ExUnit.Case, async: true
+
   alias Jerboa.Format.Header
+  alias Jerboa.Params
+
   @i :crypto.strong_rand_bytes(div 96, 8)
-  @struct %Jerboa.Format{class: :request, method: :binding, identifier: @i, body: <<>>}
+  @struct %Params{class: :request, method: :binding, identifier: @i, body: <<>>}
   @binary Map.fetch!(Header.encode(@struct), :header)
 
   describe "Header.encode/1" do
@@ -36,21 +39,21 @@ defmodule Jerboa.Format.HeaderTest do
   describe "Header.*.encode/1" do
 
     test "bind request method and class in 14 bit type" do
-      x = Header.Type.encode(%Jerboa.Format{class: :request, method: :binding})
+      x = Header.Type.encode(%Params{class: :request, method: :binding})
 
       assert 14 === bit_size x
       assert <<0x0001::16>> == <<0::2, x::14-bits>>
     end
 
     test "length into 16 bits (two bytes)" do
-      x = Header.Length.encode(%Jerboa.Format{body: <<0,1,0,1>>})
+      x = Header.Length.encode(%Params{body: <<0,1,0,1>>})
 
       assert 16 === bit_size x
       assert <<0, 4>> = x
     end
 
     test "binding success response" do
-      params = %Jerboa.Format{class: :success, method: :binding}
+      params = %Params{class: :success, method: :binding}
 
       bin = Header.Type.encode(params)
 

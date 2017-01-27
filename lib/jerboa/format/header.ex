@@ -1,6 +1,7 @@
 defmodule Jerboa.Format.Header do
   @moduledoc false
 
+  alias Jerboa.Params
   alias Jerboa.Format.Header.{Type,Length,MagicCookie,Identifier}
 
   @magic_cookie MagicCookie.encode
@@ -12,7 +13,7 @@ defmodule Jerboa.Format.Header do
     %{params | header: encode(t, l, i)}
   end
 
-  def decode(x = %Jerboa.Format{header: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96-bits>>}) do
+  def decode(x = %Params{header: <<0::2, t::14-bits, l::16-bits, @magic_cookie::bytes, i::96-bits>>}) do
     with {:ok, class, method} <- Type.decode(t),
          {:ok, length}        <- Length.decode(l) do
       {:ok, %{x | class: class, method: method, length: length, identifier: i}}
@@ -21,10 +22,10 @@ defmodule Jerboa.Format.Header do
         e
     end
   end
-  def decode(%Jerboa.Format{header: <<0::2, _::30, _::128>> = header}) do
+  def decode(%Params{header: <<0::2, _::30, _::128>> = header}) do
     {:error, Jerboa.Format.MagicCookieError.exception(header: header)}
   end
-  def decode(%Jerboa.Format{header: <<b::2, _::158>>}) do
+  def decode(%Params{header: <<b::2, _::158>>}) do
     {:error, Jerboa.Format.First2BitsError.exception(bits: b)}
   end
 

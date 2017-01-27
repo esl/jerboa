@@ -1,6 +1,8 @@
 defmodule Jerboa.Format.Header.Type do
   @moduledoc false
+
   alias Jerboa.Format.UnknownMethodError
+  alias Jerboa.Params
 
   defmodule Class do
     @moduledoc """
@@ -40,10 +42,10 @@ defmodule Jerboa.Format.Header.Type do
 
     @doc false
     def decode(<<0x001::12>>), do: {:ok, :binding}
-    def decode(<<m::12>>),      do: {:error, UnknownMethodError.exception(method: m)}
+    def decode(<<m::12>>),     do: {:error, UnknownMethodError.exception(method: m)}
   end
 
-  def encode(%Jerboa.Format{class: x, method: y}) do
+  def encode(%Params{class: x, method: y}) do
     encode Class.encode(x), Method.encode(y)
   end
 

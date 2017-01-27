@@ -1,6 +1,9 @@
 defmodule JerboaTest do
   use ExUnit.Case, async: true
+
   alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Params
+
   @moduletag system: true
   @google_ip {74, 125, 143, 127}
   @google_port 19_302
@@ -13,7 +16,7 @@ defmodule JerboaTest do
     :ok = :gen_udp.close(socket)
 
     assert {:ok,
-            %Jerboa.Format{
+            %Params{
               class: :success,
               method: :binding,
               attributes: [a]}} = Jerboa.Format.decode response
@@ -26,7 +29,7 @@ defmodule JerboaTest do
   end
 
   def binding_request do
-    Jerboa.Format.encode %Jerboa.Format{
+    Jerboa.Format.encode %Params{
       class: :request,
       method: :binding,
       identifier: :crypto.strong_rand_bytes(div 96, 8),

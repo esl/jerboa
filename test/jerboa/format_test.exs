@@ -9,8 +9,9 @@ defmodule Jerboa.FormatTest do
   alias Format.{First2BitsError,MagicCookieError,UnknownMethodError,Last2BitsError}
   alias Format.Header.{MagicCookie,
                      Type.Method, Type.Class}
-  alias Jerboa.Format.Body
+  alias Format.Body
   alias Body.Attribute
+  alias Jerboa.Params
 
   import Bitwise
 
@@ -23,7 +24,7 @@ defmodule Jerboa.FormatTest do
     test "body follows header with length in header" do
       a = XORMAHelper.struct(4)
 
-      bin = Format.encode %Jerboa.Format{
+      bin = Format.encode %Params{
         class: :success,
         method: :binding,
         identifier: @i,
@@ -35,7 +36,7 @@ defmodule Jerboa.FormatTest do
     test "bind request" do
       i = @i
       want = <<0::2, 1::14, 0::16, 0x2112A442::32, i::96-bits>>
-      got = Format.encode %Jerboa.Format{
+      got = Format.encode %Params{
         class: :request,
         method: :binding,
         identifier: @i,
@@ -162,7 +163,7 @@ defmodule Jerboa.FormatTest do
                                    i::96-bits, a::binary>>)
 
       assert {:ok,
-              %Jerboa.Format{
+              %Params{
                 class: :success,
                 method: :binding,
                 attributes: [x]}} = got
@@ -185,7 +186,7 @@ defmodule Jerboa.FormatTest do
     test "returns value without an :ok tuple" do
       packet = <<0::2, 1::14, 0::16, @magic::32, 0::96>>
 
-      assert %Format{} = Format.decode!(packet)
+      assert %Params{} = Format.decode!(packet)
     end
   end
 
