@@ -19,13 +19,14 @@ defmodule Jerboa.Client.Worker do
   end
 
   def handle_call({:bind, a, p}, _, state) do
-
-    msg = Jerboa.Format.encode(binding_request())
-    :ok = UDP.send(socket(state), a, p, msg)
-    {:ok, {_, _, response}} = UDP.recv(socket(state), 0)
+    msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :request))
+    response = call(socket(state), a, p, msg)
     {:ok, params} = Jerboa.Format.decode(response)
-
     {:reply, reflexive_candidate(params), state}
+  end
+  def handle_call({:persist, a, p}, _, state) do
+    msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :indication))
+    {:reply, cast(socket(state), a, p, msg), state}
   end
 
   def terminate(_, state) do
@@ -36,9 +37,8 @@ defmodule Jerboa.Client.Worker do
     s
   end
 
-  defp binding_request do
+  defp binding_ do
     %Jerboa.Params{
-      class: :request,
       method: :binding,
       identifier: :crypto.strong_rand_bytes(div(96, 8)),
       body: <<>>
@@ -49,5 +49,21 @@ defmodule Jerboa.Client.Worker do
     alias Jerboa.Format.Body.Attribute.XORMappedAddress
     %XORMappedAddress{address: x, port: y} = a
     {x, y}
+  end
+
+  defp call(socket, address, port, request) do
+    :ok = UDP.send(socket, address, port, request)
+    {:ok, {^address, ^port, response}} = UDP.recv(socket, 0, timeout())
+    response
+  end
+
+  defp cast(socket, address, port, indication) do
+    :ok = UDP.send(socket, address, port, indication)
+    {:error, :timeout} = UDP.recv(socket, 0, timeout())
+    :ok
+  end
+
+  def timeout do
+    Keyword.fetch!(Application.fetch_env!(:jerboa, :client), :timeout)
   end
 end

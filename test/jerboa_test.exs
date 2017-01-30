@@ -25,9 +25,27 @@ defmodule JerboaTest do
       ## Then:
       assert family(x) == "IPv4"
     end
+
+    test "send binding indication", %{client: alice} do
+
+      ## Given:
+      import Jerboa.Test.Helper.Server
+
+      ## When:
+      x = for _ <- 1..3 do
+        Jerboa.Client.persist(alice, address: address(), port: port())
+      end
+
+      ## Then:
+      assert Enum.all?(x, &ok?/1) == true
+    end
   end
 
   defp family({address, _}) when tuple_size(address) == 4 do
     "IPv4"
+  end
+
+  defp ok?(x) do
+    x == :ok
   end
 end
