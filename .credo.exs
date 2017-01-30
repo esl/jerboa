@@ -14,6 +14,8 @@
         {Credo.Check.Consistency.SpaceAroundOperators},
         {Credo.Check.Consistency.SpaceInParentheses},
         {Credo.Check.Consistency.TabsOrSpaces},
+        {Credo.Check.Consistency.MultiAliasImportRequireUse, false},
+
         {Credo.Check.Design.DuplicatedCode, excluded_macros: [:setup, :test]},
         {Credo.Check.Design.TagTODO, exit_status: 0},
         {Credo.Check.Design.TagFIXME},
@@ -29,6 +31,7 @@
         {Credo.Check.Readability.TrailingBlankLine},
         {Credo.Check.Readability.TrailingWhiteSpace},
         {Credo.Check.Readability.VariableNames},
+        {Credo.Check.Readability.Specs, false},
 
         {Credo.Check.Refactor.ABCSize},
         {Credo.Check.Refactor.CondStatements},

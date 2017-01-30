@@ -154,16 +154,15 @@ defmodule Jerboa.Params do
   struct name.
   """
   @spec put_attr(t, Attribute.t | struct) :: t
-  def put_attr(params, %Attribute{name: name} = attr) do
+  def put_attr(params, attr = %Attribute{name: name}) do
     attrs =
       params.attributes
       |> Enum.reject(fn a -> a.name === name end)
     %{params | attributes: [attr | attrs]}
   end
-  def put_attr(params, %{__struct__: name} = attr) do
+  def put_attr(params, attr = %{__struct__: name}) do
     put_attr(params, %Attribute{name: name, value: attr})
   end
-
 
   @doc """
   Generates STUN transaction ID
