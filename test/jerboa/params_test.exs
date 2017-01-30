@@ -15,7 +15,7 @@ defmodule Jerboa.ParamsTest do
   test "put_class/2 sets class field" do
     class = :request
 
-    p = Params.new() |> Params.put_class(p, class)
+    p = Params.new() |> Params.put_class(class)
 
     assert p.class == class
   end
@@ -30,7 +30,7 @@ defmodule Jerboa.ParamsTest do
   test "put_method/2 sets method field" do
     method = :binding
 
-    p = Params.new() |> Params.put_method(p, method)
+    p = Params.new() |> Params.put_method(method)
 
     assert p.method == method
   end
@@ -44,7 +44,7 @@ defmodule Jerboa.ParamsTest do
 
   test "put_id/2 sets identifier field" do
     id = Params.generate_id()
-    p = Params.new() |> Params.put_id(p, id)
+    p = Params.new() |> Params.put_id(id)
 
     assert p.identifier == id
   end
