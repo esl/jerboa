@@ -4,16 +4,24 @@ defmodule Jerboa.Test.Helper do
   defmodule Server do
     @moduledoc false
 
-    def address do
-      configuration(:address)
+    def configuration(name) when is_binary(name) do
+      Enum.find(configuration(), select(name))
     end
 
-    def port do
-      configuration(:port)
+    defp configuration do
+      Keyword.fetch!(environment(), :server)
     end
 
-    defp configuration(key) do
-      get_in(Application.fetch_env!(:jerboa, :test), [:server, key])
+    defp select(name) do
+      fn %{name: ^name} ->
+        true
+        %{name: _} ->
+          false
+      end
+    end
+
+    defp environment do
+      Application.fetch_env!(:jerboa, :test)
     end
   end
 end
