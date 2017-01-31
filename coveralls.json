@@ -1,0 +1,6 @@
+{
+    "skip_files": [
+        "lib/jerboa/client.ex",
+        "lib/jerboa/client/"
+    ]
+}
