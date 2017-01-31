@@ -1,10 +1,13 @@
 defmodule JerboaTest do
   use ExUnit.Case, async: true
 
-  @moduletag system: true
+  @moduletag :system
 
-  setup_all do
-    {:ok, alice} = Jerboa.Client.start()
+  setup do
+
+    ## Given:
+    import Jerboa.Test.Helper.Server, only: [configuration: 1]
+    {:ok, alice} = Jerboa.Client.start(server: configuration("Google"))
     on_exit fn ->
       :ok = Jerboa.Client.stop(alice)
     end
@@ -16,11 +19,8 @@ defmodule JerboaTest do
 
     test "send binding request; recieve success response", %{client: alice} do
 
-      ## Given:
-      import Jerboa.Test.Helper.Server
-
       ## When:
-      x = Jerboa.Client.bind(alice, address: address(), port: port())
+      x = Jerboa.Client.bind(alice)
 
       ## Then:
       assert family(x) == "IPv4"
@@ -28,12 +28,9 @@ defmodule JerboaTest do
 
     test "send binding indication", %{client: alice} do
 
-      ## Given:
-      import Jerboa.Test.Helper.Server
-
       ## When:
       x = for _ <- 1..3 do
-        Jerboa.Client.persist(alice, address: address(), port: port())
+        Jerboa.Client.persist(alice)
       end
 
       ## Then:

@@ -5,32 +5,40 @@ defmodule Jerboa.Client.Worker do
 
   alias :gen_udp, as: UDP
 
-  defstruct [:socket]
+  defstruct [:server, :socket]
 
-  def start_link(port \\ 4096) do
-    GenServer.start_link(__MODULE__, port)
+  def start_link(x) do
+    GenServer.start_link(__MODULE__, x)
   end
 
-  def init(p) do
+  def init(address: a, port: p) do
     false = Process.flag(:trap_exit, true)
-    {:ok, s} = UDP.open(p, [:binary, active: false])
+    {:ok, socket} = UDP.open(port(), [:binary, active: false])
     {:ok,
-     %__MODULE__{socket: s}}
+     %__MODULE__{server: {a, p}, socket: socket}}
   end
 
-  def handle_call({:bind, a, p}, _, state) do
+  def handle_call(:bind, _, state) do
     msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :request))
-    response = call(socket(state), a, p, msg)
+    response = call(socket(state), server(state), msg)
     {:ok, params} = Jerboa.Format.decode(response)
     {:reply, reflexive_candidate(params), state}
   end
-  def handle_call({:persist, a, p}, _, state) do
+  def handle_call(:persist, _, state) do
     msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :indication))
-    {:reply, cast(socket(state), a, p, msg), state}
+    {:reply, cast(socket(state), server(state), msg), state}
   end
 
   def terminate(_, state) do
     :ok = UDP.close(socket(state))
+  end
+
+  defp port do
+    Enum.random(49_152..65_535)
+  end
+
+  defp server(%__MODULE__{server: s}) do
+    s
   end
 
   defp socket(%__MODULE__{socket: s}) do
@@ -51,13 +59,13 @@ defmodule Jerboa.Client.Worker do
     {x, y}
   end
 
-  defp call(socket, address, port, request) do
+  defp call(socket, {address, port}, request) do
     :ok = UDP.send(socket, address, port, request)
     {:ok, {^address, ^port, response}} = UDP.recv(socket, 0, timeout())
     response
   end
 
-  defp cast(socket, address, port, indication) do
+  defp cast(socket, {address, port}, indication) do
     :ok = UDP.send(socket, address, port, indication)
     {:error, :timeout} = UDP.recv(socket, 0, timeout())
     :ok

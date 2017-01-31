@@ -5,19 +5,19 @@ defmodule Jerboa.Client do
 
   alias Jerboa.Client
 
-  @spec start :: Supervisor.on_start_child
-  def start do
-    Supervisor.start_child(Client.Supervisor, [])
+  @spec start(Keyword.t) :: Supervisor.on_start_child
+  def start(x) do
+    Supervisor.start_child(Client.Supervisor, [server(x)])
   end
 
-  @spec bind(GenServer.server, Keyword.t) :: {:inet.ip_address, :inet.port_number}
-  def bind(client, address: x, port: y) do
-    GenServer.call(client, {:bind, x, y})
+  @spec bind(GenServer.server) :: {:inet.ip_address, :inet.port_number}
+  def bind(client) do
+    GenServer.call(client, :bind)
   end
 
-  @spec persist(GenServer.server, Keyword.t) :: :ok
-  def persist(client, address: x, port: y) do
-    GenServer.call(client, {:persist, x, y}, 2 * timeout())
+  @spec persist(GenServer.server) :: :ok
+  def persist(client) do
+    GenServer.call(client, :persist, 2 * timeout())
   end
 
   @spec stop(GenServer.server) :: :ok |
@@ -27,8 +27,12 @@ defmodule Jerboa.Client do
     Supervisor.terminate_child(Client.Supervisor, client)
   end
 
+  defp server(server: %{address: a, port: p}) do
+    [address: a, port: p]
+  end
+
   @spec timeout :: non_neg_integer
-  def timeout do
+  defp timeout do
     Keyword.fetch!(Application.fetch_env!(:jerboa, :client), :timeout)
   end
 end
