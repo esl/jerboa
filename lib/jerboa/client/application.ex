@@ -3,14 +3,16 @@ defmodule Jerboa.Client.Application do
 
   use Application
 
-  def start(_type, _args) do
+  def start(_, _) do
+    Supervisor.start_link(children(), options())
+  end
+
+  defp children do
     import Supervisor.Spec, warn: false
+    [supervisor(Jerboa.Client.Supervisor, [])]
+  end
 
-    children = [
-
-    ]
-
-    opts = [strategy: :one_for_one, name: Jerboa.Supervisor]
-    Supervisor.start_link(children, opts)
+  defp options do
+    [strategy: :one_for_one, name: Jerboa.Client.Application]
   end
 end

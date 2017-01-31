@@ -3,25 +3,49 @@ defmodule JerboaTest do
 
   @moduletag system: true
 
+  setup_all do
+    {:ok, alice} = Jerboa.Client.start()
+    on_exit fn ->
+      :ok = Jerboa.Client.stop(alice)
+    end
+    {:ok,
+     client: alice}
+  end
+
   describe "Jerboa over UDP Transport" do
 
-    test "send binding request; recieve success response" do
+    test "send binding request; recieve success response", %{client: alice} do
 
       ## Given:
       import Jerboa.Test.Helper.Server
-      alias Jerboa.Test.Helper.Format
-      {:ok, socket} = :gen_udp.open(4096, [:binary, active: false])
 
       ## When:
-      msg = Jerboa.Format.encode(Format.binding_request())
-      :ok = :gen_udp.send(socket, address(), port(), msg)
-      {:ok, {_, _, response}} = :gen_udp.recv(socket, 0)
-      {:ok, params} = Jerboa.Format.decode(response)
+      x = Jerboa.Client.bind(alice, address: address(), port: port())
 
       ## Then:
-      assert Jerboa.Params.get_class(params) == :success
-      assert Jerboa.Params.get_method(params) == :binding
-      :ok = :gen_udp.close(socket)
+      assert family(x) == "IPv4"
     end
+
+    test "send binding indication", %{client: alice} do
+
+      ## Given:
+      import Jerboa.Test.Helper.Server
+
+      ## When:
+      x = for _ <- 1..3 do
+        Jerboa.Client.persist(alice, address: address(), port: port())
+      end
+
+      ## Then:
+      assert Enum.all?(x, &ok?/1) == true
+    end
+  end
+
+  defp family({address, _}) when tuple_size(address) == 4 do
+    "IPv4"
+  end
+
+  defp ok?(x) do
+    x == :ok
   end
 end

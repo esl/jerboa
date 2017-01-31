@@ -17,8 +17,11 @@ defmodule Jerboa.Mixfile do
   end
 
   def application do
-    [extra_applications: [:logger],
-     mod: {Jerboa.Client.Application, []}]
+    [mod: {Jerboa.Client.Application, []},
+     env: [client: [timeout: 5 * 1000]
+          ],
+     extra_applications: [:logger]
+    ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/helper", "test/helper.ex"]
