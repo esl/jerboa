@@ -4,8 +4,13 @@ defmodule Jerboa.Client.Worker do
   use GenServer
 
   alias :gen_udp, as: UDP
+  alias Jerboa.Params
+  alias Jerboa.Format.Body.Attribute
+  alias Attribute.XORMappedAddress
 
   defstruct [:server, :socket]
+
+  @system_allocated_port 0
 
   def start_link(x) do
     GenServer.start_link(__MODULE__, x)
@@ -13,7 +18,7 @@ defmodule Jerboa.Client.Worker do
 
   def init(address: a, port: p) do
     false = Process.flag(:trap_exit, true)
-    {:ok, socket} = UDP.open(port(), [:binary, active: false])
+    {:ok, socket} = UDP.open(@system_allocated_port, [:binary, active: false])
     {:ok,
      %__MODULE__{server: {a, p}, socket: socket}}
   end
@@ -33,10 +38,6 @@ defmodule Jerboa.Client.Worker do
     :ok = UDP.close(socket(state))
   end
 
-  defp port do
-    Enum.random(49_152..65_535)
-  end
-
   defp server(%__MODULE__{server: s}) do
     s
   end
@@ -53,10 +54,9 @@ defmodule Jerboa.Client.Worker do
     }
   end
 
-  defp reflexive_candidate(%Jerboa.Params{attributes: [%{value: a}]}) do
-    alias Jerboa.Format.Body.Attribute.XORMappedAddress
-    %XORMappedAddress{address: x, port: y} = a
-    {x, y}
+  defp reflexive_candidate(params) do
+    %Attribute{name: XORMappedAddress, value: v} = Params.get_attr(params, XORMappedAddress)
+    {v.address, v.port}
   end
 
   defp call(socket, {address, port}, request) do
