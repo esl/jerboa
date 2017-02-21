@@ -6,7 +6,11 @@
 [![Ebert](https://ebertapp.io/github/esl/jerboa.svg)](https://ebertapp.io/github/esl/jerboa)
 
 
-STUN/TURN encoder, decoder and client library
+STUN/TURN encoder, decoder and client library by [Erlang Solutions](https://www.erlang-solutions.com)
+
+Jerboa aims to provide simple APIs for common STUN/TURN use cases. It is used by [Fennec](https://github.com/esl/fennec)
+for encoding and decoding of STUN messages, as well as a testing tool.
+
 
 ### Checklist of STUN/TURN/ICE methods supported by Jerboa's encoder/decoder
 
