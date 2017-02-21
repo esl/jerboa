@@ -5,8 +5,23 @@
 [![Coverage Status](https://coveralls.io/repos/github/esl/jerboa/badge.svg?branch=master)](https://coveralls.io/github/esl/jerboa?branch=master)
 [![Ebert](https://ebertapp.io/github/esl/jerboa.svg)](https://ebertapp.io/github/esl/jerboa)
 
+[Documentation](https://hexdocs.pm/jerboa/0.1.0)
 
-STUN/TURN encoder, decoder and client library
+
+STUN/TURN encoder, decoder and client library by [Erlang Solutions](https://www.erlang-solutions.com)
+
+Jerboa aims to provide simple APIs for common STUN/TURN use cases. It is used by [Fennec](https://github.com/esl/fennec)
+for encoding and decoding of STUN messages, as well as a testing tool.
+
+### Installation
+
+Jerboa is available on [Hex](https://hex.pm/packages/jerboa). To use it, just add it to your dependencies:
+
+```elixir
+def deps do
+  [{:jerboa, "~> 0.1.0"}]
+end
+```
 
 ### Checklist of STUN/TURN/ICE methods supported by Jerboa's encoder/decoder
 
