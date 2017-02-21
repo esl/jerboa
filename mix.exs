@@ -4,12 +4,14 @@ defmodule Jerboa.Mixfile do
   def project do
     [app: :jerboa,
      version: "0.1.0",
+     name: "Jerboa",
      description: "STUN/TURN encoder, decoder and client library",
      elixir: "~> 1.4",
      elixirc_paths: elixirc_paths(Mix.env),
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps(),
+     package: package(),
      docs: docs(),
      dialyzer: dialyzer(),
      test_coverage: test_coverage(),
@@ -18,10 +20,8 @@ defmodule Jerboa.Mixfile do
 
   def application do
     [mod: {Jerboa.Client.Application, []},
-     env: [client: [timeout: 5 * 1000]
-          ],
-     extra_applications: [:logger]
-    ]
+     env: [client: [timeout: 5 * 1000]],
+     extra_applications: [:logger]]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/helper"]
@@ -36,8 +36,14 @@ defmodule Jerboa.Mixfile do
      {:quixir, "~> 0.9", runtime: false, only: :test}]
   end
 
+  defp package do
+    [licenses: ["Apache 2.0"],
+     maintainers: ["Erlang Solutions"],
+     links: %{"GitHub" => "https://github.com/esl/jerboa"}]
+  end
+
   defp docs do
-    [main: "Readme",
+    [main: "Jerboa",
      extras: ["README.md": [title: "Jerboa"]]]
   end
 
