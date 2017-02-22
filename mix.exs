@@ -6,6 +6,7 @@ defmodule Jerboa.Mixfile do
      version: "0.1.0",
      name: "Jerboa",
      description: "STUN/TURN encoder, decoder and client library",
+     source_url: "https://github.com/esl/jerboa",
      elixir: "~> 1.4",
      elixirc_paths: elixirc_paths(Mix.env),
      build_embedded: Mix.env == :prod,
