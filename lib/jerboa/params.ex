@@ -140,7 +140,7 @@ defmodule Jerboa.Params do
   @spec get_attr(t, attr_name :: module) :: Attribute.t
   def get_attr(params, attr_name) do
     params.attributes
-    |> Enum.find(fn a -> a.name === attr_name end)
+    |> Enum.find(fn a -> Attribute.name(a) === attr_name end)
   end
 
   @doc """
@@ -148,20 +148,13 @@ defmodule Jerboa.Params do
 
   If given attribute was already present, it will be overriden, so
   that there are no duplicates.
-
-  When this function is given plain attribute struct, not wrapped in
-  `Jerboa.Body.Attribute`, the name of attribute is inferred from
-  struct name.
   """
-  @spec put_attr(t, Attribute.t | struct) :: t
-  def put_attr(params, attr = %Attribute{name: name}) do
+  @spec put_attr(t, Attribute.t) :: t
+  def put_attr(params, attr) do
     attrs =
       params.attributes
-      |> Enum.reject(fn a -> a.name === name end)
+      |> Enum.reject(fn a -> Attribute.name(a) === Attribute.name(attr) end)
     %{params | attributes: [attr | attrs]}
-  end
-  def put_attr(params, attr = %{__struct__: name}) do
-    put_attr(params, %Attribute{name: name, value: attr})
   end
 
   @doc """

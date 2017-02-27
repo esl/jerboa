@@ -9,39 +9,34 @@ defmodule Jerboa.Format.Body.Attribute do
 
   @biggest_16 65_535
 
-  defstruct [:name, :value]
-  @typedoc """
-  The data structure representing a STUN attribute
+  @type t :: struct
+
+  @doc """
+  Retrieves attribute name from attribute struct
   """
-  @type t :: %__MODULE__{
-    name: module,
-    value: struct
-  }
+  @spec name(t) :: module
+  def name(%{__struct__: name}), do: name
 
   @doc false
   @spec encode(Params.t, struct) :: binary
-  def encode(p, a = %Attribute.XORMappedAddress{}) do
-    encode_(0x0020, Attribute.XORMappedAddress.encode(p, a))
+  def encode(params, attr = %Attribute.XORMappedAddress{}) do
+    encode_(0x0020, Attribute.XORMappedAddress.encode(params, attr))
   end
 
   @doc false
   @spec decode(Params.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
-  def decode(params, 0x0020, v) do
-    Attribute.XORMappedAddress.decode params, v
+  def decode(params, 0x0020, value) do
+    Attribute.XORMappedAddress.decode params, value
   end
-  def decode(_, x, _) when x in 0x0000..0x7FFF do
-    {:error, ComprehensionError.exception(attribute: x)}
+  def decode(_, type, _) when type in 0x0000..0x7FFF do
+    {:error, ComprehensionError.exception(attribute: type)}
   end
   def decode(_, _, _) do
     :ignore
   end
 
-  defp encode_(type, value) do
-    encode(type, byte_size(value), value)
-  end
-
-  defp encode(type, length, value) when length < @biggest_16 do
-    <<type::16, length::16, value::binary>>
+  defp encode_(type, value) when byte_size(value) < @biggest_16 do
+    <<type::16, byte_size(value)::16, value::binary>>
   end
 end
