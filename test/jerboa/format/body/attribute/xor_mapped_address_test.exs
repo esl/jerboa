@@ -5,7 +5,6 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.XORMappedAddress.{IPFamilyError, LengthError, IPArityError}
-  alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.XORMappedAddress
   alias Jerboa.Format.Header.MagicCookie
   alias Jerboa.Params
@@ -20,11 +19,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
 
         result = XORMappedAddress.decode(%Params{body: body, length: 12}, attr)
 
-        assert {:ok, %Attribute{name: XORMappedAddress, value: val}} = result
-        assert val == %XORMappedAddress{
-                        family: :ipv4,
-                        address: ip_addr,
-                        port: port}
+        assert {:ok, attr} = result
+        assert attr == %XORMappedAddress{
+                         family: :ipv4,
+                         address: ip_addr,
+                         port: port}
       end
     end
 
@@ -39,11 +38,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
         result = XORMappedAddress.decode(%Params{identifier: identifier,
                                                  body: body, length: 24}, attr)
 
-        assert {:ok, %Attribute{name: XORMappedAddress, value: val}} = result
-        assert val == %XORMappedAddress{
-                        family: :ipv6,
-                        address: ip_addr,
-                        port: port}
+        assert {:ok, attr} = result
+        assert attr == %XORMappedAddress{
+                         family: :ipv6,
+                         address: ip_addr,
+                         port: port}
       end
     end
 

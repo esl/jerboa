@@ -85,7 +85,7 @@ defmodule Jerboa.ParamsTest do
   end
 
   test "put_attrs/1 sets whole attributes list" do
-    attrs = List.duplicate(%Attribute{}, 3)
+    attrs = List.duplicate(%XORMappedAddress{}, 3)
 
     p = Params.new() |> Params.put_attrs(attrs)
 
@@ -93,7 +93,7 @@ defmodule Jerboa.ParamsTest do
   end
 
   test "get_attrs/1 retrieves whole attributes list" do
-    attrs = List.duplicate(%Attribute{}, 3)
+    attrs = List.duplicate(%XORMappedAddress{}, 3)
     p = Params.new |> Params.put_attrs(attrs)
 
     assert attrs == Params.get_attrs(p)
@@ -101,22 +101,13 @@ defmodule Jerboa.ParamsTest do
 
   describe "put_attr/2" do
     test "adds attribute to attributes list in params struct" do
-      attr = %Attribute{name: XORMappedAddress,
-                        value: %XORMappedAddress{family: :ipv4,
-                                                 address: {127, 0, 0, 1},
-                                                 port: 3333}}
+      attr = %XORMappedAddress{family: :ipv4,
+                               address: {127, 0, 0, 1},
+                               port: 3333}
 
       p = Params.new() |> Params.put_attr(attr)
 
       assert [attr] == Params.get_attrs(p)
-    end
-
-    test "infers attributes name when adding to attributes list" do
-      attr = %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 3333}
-
-      p = Params.new() |> Params.put_attr(attr)
-
-      assert [%Attribute{name: XORMappedAddress, value: attr}] == Params.get_attrs(p)
     end
 
     test "overrides existing attribute with the same name" do
@@ -126,7 +117,7 @@ defmodule Jerboa.ParamsTest do
 
       p = Params.new() |> Params.put_attr(attr1) |> Params.put_attr(attr2)
 
-      assert [%Attribute{name: XORMappedAddress, value: attr2}] == Params.get_attrs(p)
+      assert [attr2] == Params.get_attrs(p)
     end
   end
 
@@ -136,8 +127,7 @@ defmodule Jerboa.ParamsTest do
 
       p = Params.new() |> Params.put_attr(attr)
 
-      expected = %Attribute{value: attr, name: XORMappedAddress}
-      assert expected == Params.get_attr(p, XORMappedAddress)
+      assert attr == Params.get_attr(p, XORMappedAddress)
     end
 
     test "returns nil if attribute is not present" do

@@ -5,8 +5,7 @@ defmodule Jerboa.Client.Worker do
 
   alias :gen_udp, as: UDP
   alias Jerboa.Params
-  alias Jerboa.Format.Body.Attribute
-  alias Attribute.XORMappedAddress
+  alias Jerboa.Format.Body.Attribute.XORMappedAddress
 
   defstruct [:server, :socket]
 
@@ -55,8 +54,8 @@ defmodule Jerboa.Client.Worker do
   end
 
   defp reflexive_candidate(params) do
-    %Attribute{name: XORMappedAddress, value: v} = Params.get_attr(params, XORMappedAddress)
-    {v.address, v.port}
+    xor_mapped_addr = Params.get_attr(params, XORMappedAddress)
+    {xor_mapped_addr.address, xor_mapped_addr.port}
   end
 
   defp call(socket, {address, port}, request) do
