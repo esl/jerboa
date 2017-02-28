@@ -38,7 +38,7 @@ defmodule Jerboa.Format.BodyTest do
   end
 
   defp known_comprehension_required do
-    [0x0020]
+    [0x0020, 0x000D]
   end
 
   defp known_comprehension_optional do
