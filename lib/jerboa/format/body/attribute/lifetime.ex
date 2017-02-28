@@ -8,7 +8,7 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
 
   defstruct duration: 0
 
-  @max_duration :math.pow(2, 32) - 1
+  @max_duration 2 |> :math.pow(32) |> :erlang.trunc() |> Kernel.-(1)
 
   @typedoc """
   Represents a lifetime of the allocation
@@ -22,7 +22,7 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
   @doc false
   @spec encode(t) :: binary
   def encode(%__MODULE__{duration: duration})
-    when is_integer(duration) and duration <= @max_duration and duration >= 0 do
+    when is_integer(duration) and (duration in 0..@max_duration) do
     <<duration::32>>
   end
 
@@ -34,4 +34,7 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
   def decode(value) do
     {:error, LengthError.exception(length: byte_size(value))}
   end
+
+  @doc false
+  def max_duration, do: @max_duration
 end

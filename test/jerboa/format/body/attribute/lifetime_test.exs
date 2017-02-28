@@ -5,11 +5,9 @@ defmodule Jerboa.Format.Body.Attribute.LifetimeTest do
   alias Jerboa.Format.Body.Attribute.Lifetime
   alias Jerboa.Format.Lifetime.LengthError
 
-  @max_duration :math.pow(2, 32) |> :erlang.trunc() |> Kernel.-(1)
-
   describe "decode/1" do
     test "LIFETIME attribute with valid length" do
-      ptest duration: int(min: 0, max: @max_duration) do
+      ptest duration: int(min: 0, max: Lifetime.max_duration) do
         lifetime = <<duration::32>>
 
         assert {:ok, %Lifetime{duration: duration}} == Lifetime.decode(lifetime)
@@ -17,8 +15,8 @@ defmodule Jerboa.Format.Body.Attribute.LifetimeTest do
     end
 
     test "LIFETIME attribute with invalid length" do
-      ptest lifetime: string(min: 5, chars: :ascii) do
-        length = byte_size(lifetime)
+      ptest length: int(min: 5) do
+        lifetime = for _ <- 1..length, into: <<>>, do: <<Enum.random(0..255)>>
 
         assert {:error, %LengthError{length: ^length}} = Lifetime.decode(lifetime)
       end
@@ -27,7 +25,7 @@ defmodule Jerboa.Format.Body.Attribute.LifetimeTest do
 
   describe "encode/1" do
     test "LIFETIME attribute with valid value" do
-      ptest duration: int(min: 0, max: @max_duration) do
+      ptest duration: int(min: 0, max: Lifetime.max_duration) do
         assert <<duration::32>> == %Lifetime{duration: duration} |> Lifetime.encode()
       end
     end
