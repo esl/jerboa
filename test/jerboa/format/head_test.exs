@@ -105,35 +105,28 @@ defmodule Jerboa.Format.HeaderTest do
     end
   end
 
-  describe "Header.*.encode/1" do
+  test "Header.Length.encode/1 encodes length on 16 bits (two bytes)" do
+    x = Header.Length.encode(%Params{body: <<0,1,0,1>>})
 
-    test "bind request method and class in 14 bit type" do
-      x = Header.Type.encode(%Params{class: :request, method: :binding})
-
-      assert 14 === bit_size x
-      assert <<0x0001::16>> == <<0::2, x::14-bits>>
-    end
-
-    test "length into 16 bits (two bytes)" do
-      x = Header.Length.encode(%Params{body: <<0,1,0,1>>})
-
-      assert 16 === bit_size x
-      assert <<0, 4>> = x
-    end
-
-    test "binding success response" do
-      params = %Params{class: :success, method: :binding}
-
-      bin = Header.Type.encode(params)
-
-      assert <<4, 1::6>> == bin
-    end
+    assert <<4::size(16)>> == x
   end
 
-  describe "Header.*.decode/1" do
+  test "Header.Type encode/1 and decode/1 return opposite results" do
+    allowed = [binding: [:request, :success, :failure],
+               allocate: [:request, :success, :failure],
+               refresh: [:request, :success, :failure],
+               create_permission: [:request, :success, :failure],
+               send: [:indication],
+               data: [:indication]]
 
-    test "binding request" do
-      assert {:ok, :request, :binding} == Header.Type.decode <<0::6, 1>>
+    for {method, classes} <- allowed do
+      for class <- classes do
+        params = %Params{class: class, method: method}
+
+        bin = Header.Type.encode(params)
+
+        assert {:ok, ^class, ^method} = Header.Type.decode(bin)
+      end
     end
   end
 
