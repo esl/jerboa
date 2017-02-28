@@ -256,3 +256,29 @@ defmodule Jerboa.Format.XORMappedAddress do
     end
   end
 end
+
+defmodule Jerboa.Format.Lifetime do
+  @moduledoc false
+
+  defmodule LengthError do
+    @moduledoc """
+    Error indicating that LIFETIME attribute's value has invalid
+    length
+
+    TURN RFC requires that LIFETIME attribute's value must be 4 bytes long
+    so any other length results in this error.
+
+    Exception struct fields:
+    * `:length` - length of attribute's value found in STUN message (in bytes)
+    """
+
+    defexception [:message, :length]
+
+    def exception(opts) do
+      length = opts[:length]
+      %__MODULE__{length: length,
+                  message: "Invalid value length. LIFETIME attribute's value must be " <>
+                    "4 bytes long (found #{length})"}
+    end
+  end
+end

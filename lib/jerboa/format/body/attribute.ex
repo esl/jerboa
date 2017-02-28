@@ -22,12 +22,18 @@ defmodule Jerboa.Format.Body.Attribute do
   def encode(params, attr = %Attribute.XORMappedAddress{}) do
     encode_(0x0020, Attribute.XORMappedAddress.encode(params, attr))
   end
+  def encode(_params, attr = %Attribute.Lifetime{}) do
+    encode_(0x000D, Attribute.Lifetime.encode(attr))
+  end
 
   @doc false
   @spec decode(Params.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
   def decode(params, 0x0020, value) do
     Attribute.XORMappedAddress.decode params, value
+  end
+  def decode(_params, 0x000D, value) do
+    Attribute.Lifetime.decode value
   end
   def decode(_, type, _) when type in 0x0000..0x7FFF do
     {:error, ComprehensionError.exception(attribute: type)}
