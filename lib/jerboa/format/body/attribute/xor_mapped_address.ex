@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   RFC](https://tools.ietf.org/html/rfc5389#section-15.2)
   """
 
-  alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.Body.Attribute.{EncoderProtocol}
   alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
   alias Jerboa.Params
 
@@ -26,12 +26,24 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     port: :inet.port_number
   }
 
+  defimpl EncoderProtocol do
+    alias Jerboa.Format.Body.Attribute.XORMappedAddress
+    @type_code 0x0020
+
+    @spec type_code(XORMappedAddress.t) :: integer
+    def type_code(_attr), do: @type_code
+
+    @spec encode(XORMappedAddress.t, Params.t) :: binary
+    def encode(attr, params), do: XORMappedAddress.encode(attr, params)
+  end
+
   @doc false
-  @spec encode(Params.t, t) :: binary
-  def encode(_, %__MODULE__{family: :ipv4, address: a, port: p}) do
+  @spec encode(t, Params.t) :: binary
+  def encode(%__MODULE__{family: :ipv4, address: a, port: p}, _params) do
     encode(@ip_4, ip_4_encode(a), p)
   end
-  def encode(%Params{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
+  def encode(%__MODULE__{family: :ipv6, address: a, port: p},
+    %Params{identifier: i}) do
     encode(@ip_6, ip_6_encode(a, i), p)
   end
 
@@ -78,20 +90,20 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     x ^^^ @most_significant_magic_16
   end
 
-  defp ip_4_decode(x) when 32 === bit_size(x) do
+  def ip_4_decode(x) when 32 === bit_size(x) do
     <<a, b, c, d>> = :crypto.exor x, <<0x2112A442::32>>
     {a, b, c, d}
   end
 
-  defp ip_4_encode(x) when tuple_size(x) === 4 do
+  def ip_4_encode(x) when tuple_size(x) === 4 do
     x |> binerize |> ip_4_decode |> binerize
   end
 
-  defp ip_6_encode(x, i) when tuple_size(x) === 8 do
+  def ip_6_encode(x, i) when tuple_size(x) === 8 do
     x |> binerize |> ip_6_decode(i) |> binerize
   end
 
-  defp ip_6_decode(x, i) do
+  def ip_6_decode(x, i) do
     <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>> =
       :crypto.exor(x, <<0x2112A442::32>> <> i)
     {a, b, c, d, e, f, g, h}

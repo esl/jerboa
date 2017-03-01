@@ -11,6 +11,15 @@ defmodule Jerboa.Format.Body.Attribute do
 
   @type t :: struct
 
+  defprotocol EncoderProtocol do
+    @spec type_code(t) :: integer
+    def type_code(attr)
+
+    @spec encode(t, Params.t) :: binary
+    def encode(attr, params)
+
+  end
+
   @doc """
   Retrieves attribute name from attribute struct
   """
@@ -19,8 +28,9 @@ defmodule Jerboa.Format.Body.Attribute do
 
   @doc false
   @spec encode(Params.t, struct) :: binary
-  def encode(params, attr = %Attribute.XORMappedAddress{}) do
-    encode_(0x0020, Attribute.XORMappedAddress.encode(params, attr))
+  def encode(params, attr) do
+    encode_(EncoderProtocol.type_code(attr),
+      EncoderProtocol.encode(attr, params))
   end
   def encode(_params, attr = %Attribute.Lifetime{}) do
     encode_(0x000D, Attribute.Lifetime.encode(attr))
