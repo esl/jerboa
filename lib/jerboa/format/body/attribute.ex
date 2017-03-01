@@ -3,7 +3,7 @@ defmodule Jerboa.Format.Body.Attribute do
   STUN protocol attributes
   """
 
-  alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress}
   alias Jerboa.Format.ComprehensionError
   alias Jerboa.Params
 
@@ -17,7 +17,12 @@ defmodule Jerboa.Format.Body.Attribute do
 
     @spec encode(t, Params.t) :: binary
     def encode(attr, params)
+  end
 
+  defprotocol DecoderProtocol do
+    @spec decode(type :: t, value :: binary, params :: Params.t)
+    :: {:ok, t} | {:error, struct} | :ignore
+    def decode(type, value, params)
   end
 
   @doc """
@@ -39,8 +44,8 @@ defmodule Jerboa.Format.Body.Attribute do
   @doc false
   @spec decode(Params.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
-  def decode(params, 0x0020, value) do
-    Attribute.XORMappedAddress.decode params, value
+  def decode(params, 0x0020 = type, value) do
+    DecoderProtocol.decode(type_to_struct(type), value, params)
   end
   def decode(_params, 0x000D, value) do
     Attribute.Lifetime.decode value
@@ -48,11 +53,12 @@ defmodule Jerboa.Format.Body.Attribute do
   def decode(_, type, _) when type in 0x0000..0x7FFF do
     {:error, ComprehensionError.exception(attribute: type)}
   end
-  def decode(_, _, _) do
-    :ignore
-  end
+  def decode(_, _, _), do: :ignore
 
   defp encode_(type, value) when byte_size(value) < @biggest_16 do
     <<type::16, byte_size(value)::16, value::binary>>
   end
+
+  defp type_to_struct(0x0020), do: %XORMappedAddress{}
+
 end
