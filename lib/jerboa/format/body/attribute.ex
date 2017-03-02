@@ -8,6 +8,7 @@ defmodule Jerboa.Format.Body.Attribute do
   alias Jerboa.Params
 
   @biggest_16 65_535
+  @known_attrs [XORMappedAddress]
 
   @type t :: struct
 
@@ -44,8 +45,11 @@ defmodule Jerboa.Format.Body.Attribute do
   @doc false
   @spec decode(Params.t, type :: non_neg_integer, value :: binary)
     :: {:ok, t} | {:error, struct} | :ignore
-  def decode(params, 0x0020 = type, value) do
-    DecoderProtocol.decode(type_to_struct(type), value, params)
+  for attr <- @known_attrs do
+    type = EncoderProtocol.type_code(struct(attr))
+    def decode(params, unquote(type), value) do
+      DecoderProtocol.decode(struct(unquote(attr)), value, params)
+    end
   end
   def decode(_params, 0x000D, value) do
     Attribute.Lifetime.decode value
@@ -58,7 +62,4 @@ defmodule Jerboa.Format.Body.Attribute do
   defp encode_(type, value) when byte_size(value) < @biggest_16 do
     <<type::16, byte_size(value)::16, value::binary>>
   end
-
-  defp type_to_struct(0x0020), do: %XORMappedAddress{}
-
 end
