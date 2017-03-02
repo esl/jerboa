@@ -37,7 +37,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     def encode(attr, params), do: XORMappedAddress.encode(attr, params)
   end
 
-  defimpl DecoderProtocol, for: Integer  do
+  defimpl DecoderProtocol  do
     alias Jerboa.Format.Body.Attribute.XORMappedAddress
 
     @spec decode(XORMappedAddress.t, value :: binary, params :: Params.t)
@@ -98,20 +98,20 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     x ^^^ @most_significant_magic_16
   end
 
-  def ip_4_decode(x) when 32 === bit_size(x) do
+  defp ip_4_decode(x) when 32 === bit_size(x) do
     <<a, b, c, d>> = :crypto.exor x, <<0x2112A442::32>>
     {a, b, c, d}
   end
 
-  def ip_4_encode(x) when tuple_size(x) === 4 do
+  defp ip_4_encode(x) when tuple_size(x) === 4 do
     x |> binerize |> ip_4_decode |> binerize
   end
 
-  def ip_6_encode(x, i) when tuple_size(x) === 8 do
+  defp ip_6_encode(x, i) when tuple_size(x) === 8 do
     x |> binerize |> ip_6_decode(i) |> binerize
   end
 
-  def ip_6_decode(x, i) do
+  defp ip_6_decode(x, i) do
     <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>> =
       :crypto.exor(x, <<0x2112A442::32>> <> i)
     {a, b, c, d, e, f, g, h}

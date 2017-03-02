@@ -3,14 +3,8 @@ defmodule Jerboa.Format.Body.Attribute do
   STUN protocol attributes
   """
 
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress}
   alias Jerboa.Format.ComprehensionError
   alias Jerboa.Params
-
-  @biggest_16 65_535
-  @known_attrs [XORMappedAddress]
-
-  @type t :: struct
 
   defprotocol EncoderProtocol do
     @spec type_code(t) :: integer
@@ -25,6 +19,14 @@ defmodule Jerboa.Format.Body.Attribute do
     :: {:ok, t} | {:error, struct} | :ignore
     def decode(type, value, params)
   end
+
+  @apps_lib_dirs  [:code.lib_dir(:jerboa, :ebin)]
+  @known_attrs Protocol.extract_impls(DecoderProtocol, @apps_lib_dirs)
+
+  @biggest_16 65_535
+
+  @type t :: struct
+
 
   @doc """
   Retrieves attribute name from attribute struct
