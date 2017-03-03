@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.Body.Attribute.{Lifetime, Data}
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -53,7 +53,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
     test "XOR-MAPPED-ADDRESS" do
-      attr = XORMAHelper.struct(4)
+      attr = %XORMappedAddress{family: :ipv4, address: {0, 0, 0, 0}, port: 0}
       params = Params.new
       bin = Attribute.encode(params, attr)
 

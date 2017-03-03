@@ -19,11 +19,11 @@ defmodule Jerboa.Format.BodyTest do
     end
 
     test "appends padding to boundary of 4 bytes" do
-      attr = %Data{content: "Hello"}
+      content = "Hello"
+      attr = %Data{content: content}
 
-      length = 5
-      # 8 bytes is 5 bytes padded to boundary of 4 bytes
-      padded_length = 8
+      length = byte_size(content)
+      padded_length = length + AHelper.padding_length(length)
 
       %Params{body: body} = Params.new() |> Params.put_attr(attr) |> Body.encode()
 

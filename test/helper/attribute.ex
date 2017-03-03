@@ -13,4 +13,11 @@ defmodule Jerboa.Test.Helper.Attribute do
   def type(<<type::16, _::binary>>), do: type
 
   def value(<<_::32, val::binary>>), do: val
+
+  def padding_length(value_length) do
+    case rem(value_length, 4) do
+      0 -> 0
+      n -> 4 - n
+    end
+  end
 end
