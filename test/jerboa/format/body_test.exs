@@ -6,6 +6,7 @@ defmodule Jerboa.Format.BodyTest do
   alias Jerboa.Format
   alias Jerboa.Format.Body
   alias Jerboa.Params
+  alias Jerboa.Format.Body.Attribute.Data
 
   describe "Body.encode/2" do
 
@@ -15,6 +16,19 @@ defmodule Jerboa.Format.BodyTest do
       %Params{body: bin} = Body.encode %Params{attributes: [attr]}
 
       assert bit_size(bin) === AHelper.total(type: 16, length: 16, value: 64)
+    end
+
+    test "appends padding to boundary of 4 bytes" do
+      content = "Hello"
+      attr = %Data{content: content}
+
+      length = byte_size(content)
+      padded_length = length + AHelper.padding_length(length)
+
+      %Params{body: body} = Params.new() |> Params.put_attr(attr) |> Body.encode()
+
+      assert <<_type::16, ^length::16, padded_value::binary>> = body
+      assert byte_size(padded_value) == padded_length
     end
   end
 
@@ -35,10 +49,17 @@ defmodule Jerboa.Format.BodyTest do
         assert {:ok, %Params{attributes: []}} = Body.decode(%Params{body: body})
       end
     end
+
+    test "strips value padding" do
+      # DATA attribute with type, length and value with padding
+      body = <<0x0013::16, 5::16, "Hello", 0, 0, 0>>
+
+      assert {:ok, _} = Body.decode(%Params{body: body})
+    end
   end
 
   defp known_comprehension_required do
-    [0x0020, 0x000D]
+    [0x0020, 0x000D, 0x0013]
   end
 
   defp known_comprehension_optional do

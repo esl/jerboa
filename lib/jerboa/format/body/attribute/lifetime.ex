@@ -3,8 +3,9 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
   LIFETIME attribute as defined in [TURN RFC](https://trac.tools.ietf.org/html/rfc5766#section-14.2)
   """
 
-  alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.Lifetime.LengthError
+  alias Jerboa.Params
 
   defstruct duration: 0
 
@@ -18,6 +19,25 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
   @type t :: %__MODULE__{
     duration: non_neg_integer
   }
+
+  defimpl Encoder do
+    alias Jerboa.Format.Body.Attribute.Lifetime
+    @type_code 0x000D
+
+    @spec type_code(Lifetime.t) :: integer
+    def type_code(_), do: @type_code
+
+    @spec encode(Lifetime.t, Params.t) :: binary
+    def encode(attr, _), do: Lifetime.encode(attr)
+  end
+
+  defimpl Decoder do
+    alias Jerboa.Format.Body.Attribute.Lifetime
+
+    @spec decode(Lifetime.t, value :: binary, params :: Params.t)
+      :: {:ok, Lifetime.t} | {:error, struct}
+    def decode(_, value, _), do: Lifetime.decode(value)
+  end
 
   @doc false
   @spec encode(t) :: binary

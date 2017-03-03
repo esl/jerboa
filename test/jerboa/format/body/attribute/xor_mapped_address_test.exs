@@ -91,7 +91,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
     test "IPv4" do
       attr = XORMAHelper.struct(4)
 
-      bin = XORMappedAddress.encode(%Params{}, attr)
+      bin = XORMappedAddress.encode(attr, %Params{})
 
       assert address_family(bin) === "IPv4"
       assert address_bits(bin) === 32
@@ -104,7 +104,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddressTest do
       attr = XORMAHelper.struct(6)
       params = %Params{identifier: i}
 
-      bin = XORMappedAddress.encode(params, attr)
+      bin = XORMappedAddress.encode(attr, params)
 
       assert address_family(bin) === "IPv6"
       assert address_bits(bin) === 128

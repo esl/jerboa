@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   RFC](https://tools.ietf.org/html/rfc5389#section-15.2)
   """
 
-  alias Jerboa.Format.Body.Attribute
+  alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
   alias Jerboa.Params
 
@@ -26,12 +26,32 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     port: :inet.port_number
   }
 
+  defimpl Encoder do
+    alias Jerboa.Format.Body.Attribute.XORMappedAddress
+    @type_code 0x0020
+
+    @spec type_code(XORMappedAddress.t) :: integer
+    def type_code(_attr), do: @type_code
+
+    @spec encode(XORMappedAddress.t, Params.t) :: binary
+    def encode(attr, params), do: XORMappedAddress.encode(attr, params)
+  end
+
+  defimpl Decoder  do
+    alias Jerboa.Format.Body.Attribute.XORMappedAddress
+
+    @spec decode(XORMappedAddress.t, value :: binary, params :: Params.t)
+      :: {:ok, XORMappedAddress.t} | {:error, struct}
+    def decode(_, value, params), do: XORMappedAddress.decode(params, value)
+  end
+
   @doc false
-  @spec encode(Params.t, t) :: binary
-  def encode(_, %__MODULE__{family: :ipv4, address: a, port: p}) do
+  @spec encode(t, Params.t) :: binary
+  def encode(%__MODULE__{family: :ipv4, address: a, port: p}, _params) do
     encode(@ip_4, ip_4_encode(a), p)
   end
-  def encode(%Params{identifier: i}, %__MODULE__{family: :ipv6, address: a, port: p}) do
+  def encode(%__MODULE__{family: :ipv6, address: a, port: p},
+    %Params{identifier: i}) do
     encode(@ip_6, ip_6_encode(a, i), p)
   end
 
