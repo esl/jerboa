@@ -282,3 +282,25 @@ defmodule Jerboa.Format.Lifetime do
     end
   end
 end
+
+defmodule Jerboa.Format.Nonce.LengthError do
+  @moduledoc """
+  Error indicating that NONCE attribute's value has invalid
+  length
+
+  STUN RFC requires that NONCE attribute's value must be maximum 128 UTF-8 encoded
+  characters long, so any longer value results in this error.
+
+  Exception struct fields:
+  * `:length` - length of attribute's value found in STUN message (number of UTF-8 encoded characters)
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    length = opts[:length]
+    %__MODULE__{length: length,
+                message: "Invalid value length. NONCE attribute's value must be " <>
+                  "maximum 128 characters long (found #{length})"}
+  end
+end
