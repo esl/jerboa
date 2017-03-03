@@ -11,4 +11,6 @@ defmodule Jerboa.Test.Helper.Attribute do
   def length_correct?(_, _), do: false
 
   def type(<<type::16, _::binary>>), do: type
+
+  def value(<<_::32, val::binary>>), do: val
 end

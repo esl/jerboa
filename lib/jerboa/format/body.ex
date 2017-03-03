@@ -22,16 +22,17 @@ defmodule Jerboa.Format.Body do
     <<>>
   end
   defp encode(params, [attr|rest]) do
-    Attribute.encode(params, attr) <> encode(params, rest)
+    encoded = Attribute.encode(params, attr)
+    encoded <> padding(encoded) <> encode(params, rest)
   end
 
-  defp decode(params, <<t::16, s::16, c::bytes-size(s), r::binary>>, attrs) do
-    v =  strip(c, padding(s))
+  defp decode(params, <<t::16, l::16, v::bytes-size(l), r::binary>>, attrs) do
+    rest = strip(r, padding_length(l))
     case Attribute.decode(params, t, v) do
       :ignore ->
-        decode params, r, attrs
+        decode params, rest, attrs
       {:ok, attr} ->
-        decode params, r, attrs ++ [attr]
+        decode params, rest, attrs ++ [attr]
       {:error, _} = e ->
         e
     end
@@ -40,16 +41,20 @@ defmodule Jerboa.Format.Body do
     {:ok, attrs}
   end
 
-  defp strip(binary, padding) do
-    size = byte_size(binary) - padding
-    <<b::bytes-size(size), _::binary>> = binary
-    b
+  defp strip(binary, padding_len) do
+    <<_::bytes-size(padding_len), rest::binary>> = binary
+    rest
   end
 
-  defp padding(length) do
+  defp padding_length(length) do
     case rem(length, 4) do
       0 -> 0
       n -> 4 - n
     end
+  end
+
+  defp padding(attr) do
+    padding_length = padding_length(byte_size(attr))
+    String.duplicate(<<0>>, padding_length)
   end
 end

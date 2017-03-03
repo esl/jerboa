@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.Body.Attribute.Lifetime
+  alias Jerboa.Format.Body.Attribute.{Lifetime, Data}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -41,6 +41,16 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert length_correct?(bin, total(duration: 4))
     end
 
+    test "DATA as a TLV" do
+      content = "Hello"
+
+      bin = Attribute.encode(Params.new, %Data{content: content})
+
+      assert type(bin) == 0x0013
+      assert length_correct?(bin, total(content: byte_size(content)))
+    end
+  end
+
   describe "Attribute.decode/3 is opposite to encode/2 for" do
     test "XOR-MAPPED-ADDRESS" do
       attr = XORMAHelper.struct(4)
@@ -51,11 +61,19 @@ defmodule Jerboa.Format.Body.AttributeTest do
     end
 
     test "LIFETIME" do
-      attr = %Lifetime{duration: 12345}
+      attr = %Lifetime{duration: 12_345}
       params = Params.new
       bin = Attribute.encode(params, attr)
 
       assert {:ok, attr} == Attribute.decode(params, 0x000D, value(bin))
+    end
+
+    test "Data" do
+      attr = %Data{content: "Hello"}
+      params = Params.new
+      bin = Attribute.encode(params, attr)
+
+      assert {:ok, attr} == Attribute.decode(params, 0x0013, value(bin))
     end
   end
 end
