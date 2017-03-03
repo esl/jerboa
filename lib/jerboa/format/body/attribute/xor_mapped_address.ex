@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   RFC](https://tools.ietf.org/html/rfc5389#section-15.2)
   """
 
-  alias Jerboa.Format.Body.Attribute.{DecoderProtocol,EncoderProtocol}
+  alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
   alias Jerboa.Params
 
@@ -26,7 +26,7 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     port: :inet.port_number
   }
 
-  defimpl EncoderProtocol do
+  defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.XORMappedAddress
     @type_code 0x0020
 
@@ -37,12 +37,12 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     def encode(attr, params), do: XORMappedAddress.encode(attr, params)
   end
 
-  defimpl DecoderProtocol  do
+  defimpl Decoder  do
     alias Jerboa.Format.Body.Attribute.XORMappedAddress
 
     @spec decode(XORMappedAddress.t, value :: binary, params :: Params.t)
-    :: {:ok, XORMappedAddress.t} | {:error, struct} | :ignore
-    def decode(_, params, value), do: XORMappedAddress.decode(params, value)
+      :: {:ok, XORMappedAddress.t} | {:error, struct}
+    def decode(_, value, params), do: XORMappedAddress.decode(params, value)
   end
 
   @doc false
