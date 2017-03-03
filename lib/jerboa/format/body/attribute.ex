@@ -5,6 +5,7 @@ defmodule Jerboa.Format.Body.Attribute do
 
   alias Jerboa.Format.ComprehensionError
   alias Jerboa.Params
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime}
 
   defprotocol Encoder do
     @moduledoc false
@@ -24,8 +25,7 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, params)
   end
 
-  @apps_lib_dirs  [:code.lib_dir(:jerboa, :ebin)]
-  @known_attrs Protocol.extract_impls(DecoderProtocol, @apps_lib_dirs)
+  @known_attrs [XORMappedAddress, Lifetime]
 
   @biggest_16 65_535
 
