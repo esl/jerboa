@@ -326,3 +326,25 @@ defmodule Jerboa.Format.Username.LengthError do
                   "maximum 512 bytes long (found #{length})"}
   end
 end
+
+defmodule Jerboa.Format.Realm.LengthError do
+  @moduledoc """
+  Error indicating that REALM attribute's value has invalid
+  length
+
+  STUN RFC requires that REALM attribute's value must be maximum 128 UTF-8 encoded
+  characters long, so any longer value results in this error.
+
+  Exception struct fields:
+  * `:length` - length of attribute's value found in STUN message (number of UTF-8 encoded characters)
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    length = opts[:length]
+    %__MODULE__{length: length,
+                message: "Invalid value length. REALM attribute's value must be " <>
+                  "maximum 128 characters long (found #{length})"}
+  end
+end
