@@ -5,7 +5,8 @@ defmodule Jerboa.Format.Body.Attribute do
 
   alias Jerboa.Format.ComprehensionError
   alias Jerboa.Params
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce, Username}
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
+                                      Username, Realm}
 
   defprotocol Encoder do
     @moduledoc false
@@ -25,7 +26,7 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, params)
   end
 
-  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username]
+  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm]
 
   @biggest_16 65_535
 

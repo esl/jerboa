@@ -4,7 +4,8 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce, Username}
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
+                                      Username, Realm}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -67,6 +68,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0006
       assert length_correct?(bin, total(value: byte_size(value)))
     end
+
+    test "REALM as a TLV" do
+      value = "Super Server"
+
+      bin = Attribute.encode(Params.new, %Realm{value: value})
+
+      assert type(bin) == 0x0014
+      assert length_correct?(bin, total(value: byte_size(value)))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -108,6 +118,14 @@ defmodule Jerboa.Format.Body.AttributeTest do
       bin = Attribute.encode(params, attr)
 
       assert {:ok, attr} == Attribute.decode(params, 0x0006, value(bin))
+    end
+
+    test "REALM" do
+      attr = %Realm{value: "Super Server"}
+      params = Params.new
+      bin = Attribute.encode(params, attr)
+
+      assert {:ok, attr} == Attribute.decode(params, 0x0014, value(bin))
     end
   end
 end
