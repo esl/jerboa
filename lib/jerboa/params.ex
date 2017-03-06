@@ -13,7 +13,8 @@ defmodule Jerboa.Params do
   alias Body.Attribute
 
   defstruct [:class, :method, :length, :identifier,
-             :header, :body, extra: <<>>, attributes: []]
+             :header, :body, extra: <<>>, attributes: [],
+             message_integrity: <<>>]
 
   @typedoc """
   The main data structure representing STUN message parameters
@@ -32,6 +33,8 @@ defmodule Jerboa.Params do
   and magic cookie fields
   * `body` is the raw Elixir binary representation of the STUN attributes
   * `extra` are any bytes after the length given in the STUN header
+  * `message_integrity` is a value of message integrity attribute (this
+     attribute won't be present in attributes list)
   """
   @type t :: %__MODULE__{
     class: Class.t,
@@ -41,7 +44,8 @@ defmodule Jerboa.Params do
     attributes: [Attribute.t],
     header: binary,
     body: binary,
-    extra: binary
+    extra: binary,
+    message_integrity: binary
   }
 
   @doc """

@@ -3,20 +3,24 @@ defmodule Jerboa.Format do
   Encode and decode the STUN wire format
   """
 
-  alias Jerboa.Format.{Header,Body}
+  alias Jerboa.Format.{Header, Body, MessageIntegrity}
   alias Jerboa.Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Params
 
-  @spec encode(Params.t) :: binary
+  @default_opts [with_message_integrity: true, password: "alamakota"]
+
+  @spec encode(Params.t, Keyword.t) :: binary
   @doc """
   Encode a complete set of parameters into a binary suitable writing
   to the network
   """
-  def encode(params) do
+  def encode(params, opts \\ @default_opts) do
+    opts = merge_opts_with_defaults(opts)
     params
-    |> Body.encode
-    |> Header.encode
-    |> concatenate
+    |> Body.encode()
+    |> Header.encode()
+    |> MessageIntegrity.apply(opts)
+    |> concatenate()
   end
 
   @spec decode!(binary) :: Params.t | no_return
@@ -59,5 +63,7 @@ defmodule Jerboa.Format do
 
   defp concatenate(%Params{header: x, body: y}) do
     x <> y
+  defp merge_opts_with_defaults(opts) do
+    Keyword.merge(@default_opts, opts)
   end
 end
