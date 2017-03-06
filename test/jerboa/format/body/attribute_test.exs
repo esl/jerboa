@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce}
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce, Username}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -58,6 +58,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0015
       assert length_correct?(bin, total(value: byte_size(value)))
     end
+
+    test "USERNAME as a TLV" do
+      value = "Hello"
+
+      bin = Attribute.encode(Params.new, %Username{value: value})
+
+      assert type(bin) == 0x0006
+      assert length_correct?(bin, total(value: byte_size(value)))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -91,6 +100,14 @@ defmodule Jerboa.Format.Body.AttributeTest do
       bin = Attribute.encode(params, attr)
 
       assert {:ok, attr} == Attribute.decode(params, 0x0015, value(bin))
+    end
+
+    test "USERNAME" do
+      attr = %Username{value: "Hello"}
+      params = Params.new
+      bin = Attribute.encode(params, attr)
+
+      assert {:ok, attr} == Attribute.decode(params, 0x0006, value(bin))
     end
   end
 end

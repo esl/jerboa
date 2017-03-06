@@ -304,3 +304,25 @@ defmodule Jerboa.Format.Nonce.LengthError do
                   "maximum 128 characters long (found #{length})"}
   end
 end
+
+defmodule Jerboa.Format.Username.LengthError do
+  @moduledoc """
+  Error indicating that USERNAME attribute's value has invalid
+  length
+
+  STUN RFC requires that USERNAME attribute's value must be a valid UTF-8 encoded
+  sequence of 512 or less bytes.
+
+  Exception struct fields:
+  * `:length` - length of attribute's value found in STUN message (in bytes)
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    length = opts[:length]
+    %__MODULE__{length: length,
+                message: "Invalid value length. USERNAME attribute's value must be " <>
+                  "maximum 512 bytes long (found #{length})"}
+  end
+end
