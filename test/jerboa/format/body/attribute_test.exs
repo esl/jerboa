@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data}
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -49,6 +49,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0013
       assert length_correct?(bin, total(content: byte_size(content)))
     end
+
+    test "NONCE as a TLV" do
+      value = "12345"
+
+      bin = Attribute.encode(Params.new, %Nonce{value: value})
+
+      assert type(bin) == 0x0015
+      assert length_correct?(bin, total(value: byte_size(value)))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -68,12 +77,20 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert {:ok, attr} == Attribute.decode(params, 0x000D, value(bin))
     end
 
-    test "Data" do
+    test "DATA" do
       attr = %Data{content: "Hello"}
       params = Params.new
       bin = Attribute.encode(params, attr)
 
       assert {:ok, attr} == Attribute.decode(params, 0x0013, value(bin))
+    end
+
+    test "NONCE" do
+      attr = %Nonce{value: "12345"}
+      params = Params.new
+      bin = Attribute.encode(params, attr)
+
+      assert {:ok, attr} == Attribute.decode(params, 0x0015, value(bin))
     end
   end
 end
