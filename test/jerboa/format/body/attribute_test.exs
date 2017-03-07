@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
 
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
-                                      Username, Realm}
+                                      Username, Realm, ErrorCode}
   alias Jerboa.Params
 
   import Jerboa.Test.Helper.Attribute, only: [total: 1, length_correct?: 2,
@@ -77,6 +77,16 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0014
       assert length_correct?(bin, total(value: byte_size(value)))
     end
+
+    test "ERROR-CODE as a TLV" do
+      code = 400
+      reason = "alice has a cat"
+
+      bin = Attribute.encode(Params.new, %ErrorCode{code: code, reason: reason})
+
+      assert type(bin) == 0x0009
+      assert length_correct?(bin, total(padding_and_code: 4, reason: byte_size(reason)))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -126,6 +136,14 @@ defmodule Jerboa.Format.Body.AttributeTest do
       bin = Attribute.encode(params, attr)
 
       assert {:ok, attr} == Attribute.decode(params, 0x0014, value(bin))
+    end
+
+    test "ERROR-CODE" do
+      attr = %ErrorCode{code: 400, name: :bad_request}
+      params = Params.new
+      bin = Attribute.encode(params, attr)
+
+      assert {:ok, ^attr} = Attribute.decode(params, 0x0009, value(bin))
     end
   end
 end

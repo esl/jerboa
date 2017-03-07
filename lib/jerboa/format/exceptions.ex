@@ -348,3 +348,50 @@ defmodule Jerboa.Format.Realm.LengthError do
                   "maximum 128 characters long (found #{length})"}
   end
 end
+
+defmodule Jerboa.Format.ErrorCode.FormatError do
+  @moduledoc """
+  Error indicating invalid format of ERROR-CODE attribute
+
+  STUN RFC and its extensions define several error code values which must be known
+  by STUN agent. In addition reason field of ERROR-CODE must be valid UTF-8
+  encoded string, no longer than 128 characters. This error indicates breaking of any
+  of these constraints.
+
+  You may also encounter this error when ERROR-CODE attribute's binary format isn't
+  compliant with the one specified in STUN RFC.
+  """
+
+  defexception [:message, :code, :reason]
+
+  def exception(opts) do
+    code = opts[:code]
+    reason = opts[:reason]
+    %__MODULE__{code: code,
+                reason: reason,
+                message: "Invalid format ERROR-CODE attribute. Please refer to " <>
+                  "documentation of `Jerboa.Format.ErrorCode.FormatError` module for " <>
+                  "more information"}
+  end
+end
+
+defmodule Jerboa.Format.ErrorCode.LengthError do
+  @moduledoc """
+  Error indicating that ERROR-CODE attribute's value is too short
+
+  ERROR-CODE binary format requires that its value is at least 4 bytes long. Any other
+  length results in this error.
+
+  Exception struct fields:
+  * `:length` - length of attribute's value found in STUN message (in bytes)
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    length = opts[:length]
+    %__MODULE__{length: length,
+                message: "Invalid value length. ERROR-CODE attribute's value must be " <>
+                  "at least 4 bytes long (found #{length})"}
+  end
+end
