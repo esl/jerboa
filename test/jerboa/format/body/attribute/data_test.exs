@@ -3,10 +3,11 @@ defmodule Jerboa.Format.Body.Attribute.DataTest do
   use Quixir
 
   alias Jerboa.Format.Body.Attribute.Data
+  alias Jerboa.Format.Meta
 
   test "decode/1 DATA attribute" do
     ptest content: string() do
-      assert {:ok, %Data{content: content}} == Data.decode(content)
+      assert {:ok, _, %Data{content: ^content}} = Data.decode(content, %Meta{})
     end
   end
 

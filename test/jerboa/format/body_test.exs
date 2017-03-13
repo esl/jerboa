@@ -7,13 +7,14 @@ defmodule Jerboa.Format.BodyTest do
   alias Jerboa.Format.Body
   alias Jerboa.Params
   alias Jerboa.Format.Body.Attribute.Data
+  alias Jerboa.Format.Meta
 
   describe "Body.encode/2" do
 
     test "one (XORMappedAddress) attribute into one TLV field" do
       attr = XORMAHelper.struct(4)
 
-      %Params{body: bin} = Body.encode %Params{attributes: [attr]}
+      %Meta{body: bin} = Body.encode %Meta{params: %Params{attributes: [attr]}}
 
       assert bit_size(bin) === AHelper.total(type: 16, length: 16, value: 64)
     end
@@ -25,7 +26,8 @@ defmodule Jerboa.Format.BodyTest do
       length = byte_size(content)
       padded_length = length + AHelper.padding_length(length)
 
-      %Params{body: body} = Params.new() |> Params.put_attr(attr) |> Body.encode()
+      params = Params.new() |> Params.put_attr(attr)
+      %Meta{body: body} = %Meta{params: params} |> Body.encode()
 
       assert <<_type::16, ^length::16, padded_value::binary>> = body
       assert byte_size(padded_value) == padded_length
@@ -38,7 +40,7 @@ defmodule Jerboa.Format.BodyTest do
       for type <- 0x0000..0x7FFF, not type in known_comprehension_required() do
         body = <<type::16, 0::16>>
 
-        {:error, error} = Body.decode(%Params{body: body})
+        {:error, error} = Body.decode(%Meta{body: body})
         assert %Format.ComprehensionError{attribute: ^type} = error
       end
     end
@@ -46,7 +48,8 @@ defmodule Jerboa.Format.BodyTest do
     test "ignores unknown comprehension optional attributes" do
       for type <- 0x8000..0xFFFF, not type in known_comprehension_optional() do
         body = <<type::16, 0::16>>
-        assert {:ok, %Params{attributes: []}} = Body.decode(%Params{body: body})
+        assert {:ok, %Meta{params: params}} = Body.decode(%Meta{body: body})
+        assert %Params{attributes: []} = params
       end
     end
 
@@ -54,7 +57,14 @@ defmodule Jerboa.Format.BodyTest do
       # DATA attribute with type, length and value with padding
       body = <<0x0013::16, 5::16, "Hello", 0, 0, 0>>
 
-      assert {:ok, _} = Body.decode(%Params{body: body})
+      assert {:ok, _} = Body.decode(%Meta{body: body})
+    end
+
+    test "attribute of invalid length results in error" do
+      body = <<0x0008::16, 1::16>>
+
+      assert {:error, error} = Body.decode(%Meta{body: body})
+      assert %Format.AttributeFormatError{} = error
     end
   end
 

@@ -2,43 +2,52 @@ defmodule Jerboa.Format.Body do
   @moduledoc false
 
   alias Jerboa.Format.Body.Attribute
-  alias Jerboa.Params
+  alias Jerboa.Format.AttributeFormatError
+  alias Jerboa.Format.Meta
 
-  def encode(params = %Params{attributes: a}) do
-    %{params | body: encode(params, a)}
+  @spec encode(Meta.t) :: Meta.t
+  def encode(%Meta{params: params} = meta) do
+    {meta, body} = Enum.reduce params.attributes, {meta, <<>>}, &encode/2
+    %{meta | body: body}
   end
 
-  def decode(params = %Params{length: 0, body: <<>>}), do: {:ok, params}
-  def decode(params = %Params{body: body}) do
-    case decode(params, body, []) do
-      {:ok, attributes} ->
-        {:ok, %{params | attributes: attributes}}
+  @spec decode(Meta.t) :: {:ok, Meta.t} | {:error, struct}
+  def decode(%Meta{length: 0, body: <<>>} = meta), do: {:ok, meta}
+  def decode(%Meta{body: body} = meta) do
+    case decode(meta, body) do
+      {:ok, meta} ->
+        {:ok, meta}
       {:error, _} = e ->
         e
     end
   end
 
-  defp encode(_, []) do
-    <<>>
-  end
-  defp encode(params, [attr|rest]) do
-    encoded = Attribute.encode(params, attr)
-    encoded <> padding(encoded) <> encode(params, rest)
+  @spec encode(Attribute.t, {Meta.t, body :: binary})
+    :: {Meta.t, new_body :: binary}
+  defp encode(attr, {meta, body}) do
+    {meta, encoded} = Attribute.encode(meta, attr)
+    {meta, body <> encoded <> padding(encoded)}
   end
 
-  defp decode(params, <<t::16, l::16, v::bytes-size(l), r::binary>>, attrs) do
+  @spec decode(Meta.t, not_decoded :: binary) :: {:ok, Meta.t} | {:error, struct}
+  defp decode(meta, <<t::16, l::16, v::bytes-size(l), r::binary>>) do
     rest = strip(r, padding_length(l))
-    case Attribute.decode(params, t, v) do
-      :ignore ->
-        decode params, rest, attrs
-      {:ok, attr} ->
-        decode params, rest, attrs ++ [attr]
+    case Attribute.decode(meta, t, v) do
+      {:ignore, meta} ->
+        decode meta, rest
+      {:ok, meta, attr} ->
+        params = meta.params
+        new_params = %{params | attributes: [attr|params.attributes]}
+        decode %{meta | params: new_params}, rest
       {:error, _} = e ->
         e
     end
   end
-  defp decode(_, <<>>, attrs) do
-    {:ok, attrs}
+  defp decode(meta, <<>>) do
+    {:ok, meta}
+  end
+  defp decode(_, _) do
+    {:error, AttributeFormatError.exception()}
   end
 
   defp strip(binary, padding_len) do

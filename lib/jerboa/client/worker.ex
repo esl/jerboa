@@ -46,11 +46,8 @@ defmodule Jerboa.Client.Worker do
   end
 
   defp binding_ do
-    %Jerboa.Params{
-      method: :binding,
-      identifier: :crypto.strong_rand_bytes(div(96, 8)),
-      body: <<>>
-    }
+    Params.new()
+    |> Params.put_method(:binding)
   end
 
   defp reflexive_candidate(params) do

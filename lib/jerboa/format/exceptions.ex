@@ -148,6 +148,20 @@ defmodule Jerboa.Format.Last2BitsError do
   end
 end
 
+defmodule Jerboa.Format.AttributeFormatError do
+  @moduledoc """
+  Error indicating that binary representation of attribute isn't
+  compliant with [STUN RFC](https://tools.ietf.org/html/rfc5389#section-15).
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "length of attribute's value does not match length " <>
+      "declared in attribute's header"}
+  end
+end
+
 defmodule Jerboa.Format.ComprehensionError do
   @moduledoc """
 

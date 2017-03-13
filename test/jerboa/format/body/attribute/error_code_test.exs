@@ -4,6 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
 
   alias Jerboa.Format.Body.Attribute.ErrorCode
   alias Jerboa.Format.ErrorCode.{FormatError, LengthError}
+  alias Jerboa.Format.Meta
 
   @moduletag :now
 
@@ -53,7 +54,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
       ptest length: int(min: 0, max: 3), content: int(min: 0) do
         bin = <<content::size(length)-unit(8)>>
 
-        assert {:error, %LengthError{length: ^length}} = ErrorCode.decode(bin)
+        assert {:error, %LengthError{length: ^length}} = ErrorCode.decode(bin, %Meta{})
       end
     end
 
@@ -62,7 +63,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
       reason = <<0xFFFF>>
       bin = binary_attr(code, reason)
 
-      assert {:error, error} = ErrorCode.decode(bin)
+      assert {:error, error} = ErrorCode.decode(bin, %Meta{})
       assert %FormatError{} = error
       assert error.code == code
       assert error.reason == reason
@@ -73,7 +74,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
       reason = "alice has a cat"
       bin = binary_attr(code, reason)
 
-      assert {:error, error} = ErrorCode.decode(bin)
+      assert {:error, error} = ErrorCode.decode(bin, %Meta{})
       assert %FormatError{} = error
       assert error.code == code
       assert error.reason == reason
@@ -85,7 +86,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
 
         bin = binary_attr(code, reason)
 
-        assert {:ok, attr} = ErrorCode.decode(bin)
+        assert {:ok, _, attr} = ErrorCode.decode(bin, %Meta{})
         assert attr.code == code
         assert attr.name
         assert attr.reason == reason
