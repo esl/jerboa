@@ -31,7 +31,8 @@ defmodule Jerboa.Format.Body do
   end
 
   @spec decode(Meta.t, not_decoded :: binary) :: {:ok, Meta.t} | {:error, struct}
-  defp decode(meta, <<@message_integrity::16, _::binary>> = body) do
+  defp decode(meta, <<@message_integrity::16, l::16, _v::size(l)-bytes,
+    _::binary>> = body) do
     MessageIntegrity.extract(meta, body)
   end
   defp decode(meta, <<t::16, l::16, v::bytes-size(l), r::binary>>) do

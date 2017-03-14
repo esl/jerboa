@@ -7,10 +7,14 @@ defmodule Jerboa.FormatTest do
   alias Jerboa.{Format, Params}
   alias Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Format.Header.MagicCookie
+  alias Jerboa.Format.Body.Attribute.{Username, Realm, Nonce}
+  alias Jerboa.Format.MessageIntegrity.VerificationError
+  alias Jerboa.Format.Meta
+  alias Jerboa.Format.Body.Attribute
 
   @magic MagicCookie.value
 
-  describe "Format.encode/1" do
+  describe "Format.encode/2" do
 
     test "body follows header with length in header" do
 
@@ -30,7 +34,7 @@ defmodule Jerboa.FormatTest do
     end
   end
 
-  describe "Format.decode/1" do
+  describe "Format.decode/2" do
 
     test "fails given packet with not enough bytes for header" do
       ptest length: int(min: 0, max: 19), content: int(min: 0) do
@@ -71,7 +75,7 @@ defmodule Jerboa.FormatTest do
     end
   end
 
-  describe "Format.decode!/1" do
+  describe "Format.decode!/2" do
     test "raises an exception upon failure" do
       packet = "Supercalifragilisticexpialidocious!"
 
@@ -83,5 +87,113 @@ defmodule Jerboa.FormatTest do
 
       assert %Params{} = Format.decode!(packet)
     end
+  end
+
+  test "MI values passed as attributes shadow values passed as options" do
+    username_one = "alice"
+    realm_one = "wonderland"
+    username_two = "harry"
+    realm_two = "hogwarts"
+    secret = "secret"
+
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Username{value: username_one})
+      |> Params.put_attr(%Realm{value: realm_one})
+      |> Format.encode(username: username_two, realm: realm_two, secret: secret)
+
+    assert {:ok, _} = Format.decode(bin, secret: secret)
+  end
+
+  test "encode/2 and decode/2 apply and verify MI symmetrically" do
+    username = "alice"
+    realm = "wonderland"
+    secret = "secret"
+
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Username{value: username})
+      |> Params.put_attr(%Realm{value: realm})
+      |> Format.encode(secret: secret)
+
+    assert {:ok, _} = Format.decode(bin, secret: secret)
+  end
+
+  test "decode/2 fails given different secret than encode/2" do
+    username = "alice"
+    realm = "wonderland"
+    secret = "secret"
+    other_secret = "other_secret"
+
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Username{value: username})
+      |> Params.put_attr(%Realm{value: realm})
+      |> Format.encode(secret: secret)
+
+    assert {:error, %VerificationError{}} =
+      Format.decode(bin, secret: other_secret)
+  end
+
+  test "decode/2 fails given different username than encode/2" do
+    username = "alice"
+    other_username = "harry"
+    realm = "wonderland"
+    secret = "secret"
+
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Realm{value: realm})
+      |> Format.encode(secret: secret, username: username)
+
+    assert {:error, %VerificationError{}} =
+      Format.decode(bin, secret: secret, username: other_username)
+  end
+
+  test "decode/2 fails given different realm than encode/2" do
+    username = "alice"
+    realm = "wonderland"
+    other_realm = "hogwarts"
+    secret = "secret"
+
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Username{value: username})
+      |> Format.encode(secret: secret, realm: realm)
+
+    assert {:error, %VerificationError{}} =
+      Format.decode(bin, secret: secret, realm: other_realm)
+  end
+
+  test "attributes after MI are ignored" do
+    secret = "secret"
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%Username{value: "alice"})
+      |> Params.put_attr(%Realm{value: "wonderland"})
+      |> Format.encode(secret: secret)
+    {_, extra_attr} = Attribute.encode(%Meta{}, %Nonce{value: "1234"})
+    <<header::20-bytes, body::binary>> = bin
+    <<0::2, type::14, length::16, header_rest::binary>> = header
+    new_length = length + byte_size(extra_attr)
+    new_header = <<0::2, type::14, (new_length)::16, header_rest::binary>>
+    modified_bin = new_header <> body <> extra_attr
+
+    assert {:ok, params} = Format.decode(modified_bin, secret: secret)
+    assert %Username{} = Params.get_attr(params, Username)
+    assert %Realm{} = Params.get_attr(params, Realm)
+    assert nil == Params.get_attr(params, Nonce)
   end
 end
