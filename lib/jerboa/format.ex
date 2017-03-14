@@ -3,19 +3,41 @@ defmodule Jerboa.Format do
   Encode and decode the STUN wire format
   """
 
-  alias Jerboa.Format.{Meta, Header,Body}
+  alias Jerboa.Format.{Meta, Header,Body, MessageIntegrity}
   alias Jerboa.Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Params
 
-  @spec encode(Params.t) :: binary
   @doc """
   Encode a complete set of parameters into a binary suitable writing
   to the network
+
+  ## Calculating message integrity
+
+  In order to calculate message integrity over encoded message,
+  encoder must know three values: username (as in USERNAME attribute),
+  realm (REALM) and secret.
+
+  Realm value *must* be present in attributes
+  list of params struct. Username can be provided in options list,
+  but USERNAME attribute will override it if present. Secret *must*
+  be provided in option list.
+
+  If any of these values is missing, message integrity won't be applied
+  and encoding will succeed. None of these values will be validated,
+  so encoding will fail if, for example, provided username is an integer.
+
+  ## Available options
+
+  * `:secret` - secret used for calculating message integrity
+  * `:username` - username used for calculating message integrity
+    if USERNAME attribute can't be found in params struct
   """
-  def encode(params) do
-    %Meta{params: params}
+  @spec encode(Params.t, options :: Keyword.t) :: binary
+  def encode(params, options \\ []) do
+    %Meta{params: params, options: options}
     |> Body.encode()
     |> Header.encode()
+    |> MessageIntegrity.apply()
     |> concatenate()
   end
 

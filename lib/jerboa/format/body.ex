@@ -7,8 +7,7 @@ defmodule Jerboa.Format.Body do
 
   @spec encode(Meta.t) :: Meta.t
   def encode(%Meta{params: params} = meta) do
-    {meta, body} = Enum.reduce params.attributes, {meta, <<>>}, &encode/2
-    %{meta | body: body}
+    Enum.reduce params.attributes, meta, &encode/2
   end
 
   @spec decode(Meta.t) :: {:ok, Meta.t} | {:error, struct}
@@ -22,11 +21,10 @@ defmodule Jerboa.Format.Body do
     end
   end
 
-  @spec encode(Attribute.t, {Meta.t, body :: binary})
-    :: {Meta.t, new_body :: binary}
-  defp encode(attr, {meta, body}) do
+  @spec encode(Attribute.t, Meta.t) :: Meta.t
+  defp encode(attr, meta) do
     {meta, encoded} = Attribute.encode(meta, attr)
-    {meta, body <> encoded <> padding(encoded)}
+    %{meta | body: meta.body <> encoded <> padding(encoded)}
   end
 
   @spec decode(Meta.t, not_decoded :: binary) :: {:ok, Meta.t} | {:error, struct}
