@@ -17,20 +17,24 @@ defmodule Jerboa.Format do
   encoder must know three values: username (as in USERNAME attribute),
   realm (REALM) and secret.
 
-  Realm value *must* be present in attributes
-  list of params struct. Username can be provided in options list,
-  but USERNAME attribute will override it if present. Secret *must*
-  be provided in option list.
+  Realm and username may be provided as attributes in params struct,
+  or passed in options list. However attribute values will always override
+  those found in options. Secret *must* be provided in option list.
 
   If any of these values is missing, message integrity won't be applied
   and encoding will succeed. None of these values will be validated,
   so encoding will fail if, for example, provided username is an integer.
+
+  Note that passing these values in options list *won't add them to
+  message attributes list*.
 
   ## Available options
 
   * `:secret` - secret used for calculating message integrity
   * `:username` - username used for calculating message integrity
     if USERNAME attribute can't be found in params struct
+  * `:realm` - realm used for calculating message integrity
+    if REALM attribute can't be found in params struct
   """
   @spec encode(Params.t, options :: Keyword.t) :: binary
   def encode(params, options \\ []) do
@@ -41,14 +45,14 @@ defmodule Jerboa.Format do
     |> concatenate()
   end
 
-  @spec decode!(binary)
-    :: Params.t | {Params.t, extra :: binary} | no_return
   @doc """
   The same as `decode/1` but raises one of various exceptions if the
   binary doesn't encode a STUN message
   """
-  def decode!(bin) do
-    case decode(bin) do
+  @spec decode!(binary, options :: Keyword.t)
+    :: Params.t | {Params.t, extra :: binary} | no_return
+  def decode!(bin, options \\ []) do
+    case decode(bin, options) do
       {:ok, params} ->
         params
       {:ok, params, extra} ->
@@ -62,18 +66,40 @@ defmodule Jerboa.Format do
   Decode a binary into a complete set of STUN message parameters
 
   Return an `:ok` tuple or an `:error` tuple with an error struct if
-  the binary doesn't encode a STUN message. Returns `{:ok, params, extra}`
-  if given binary was longer than declared in STUN header.
+  the binary doesn't encode a STUN message, or included message integrity
+  is not valid (see "Verifying message integrity"). Returns
+  `{:ok, params, extra}` if given binary was longer than declared in
+  STUN header.
+
+  ## Verifying message integrity
+
+  Similarly to `encode/2` decoder first looks for username and realm
+  in decoded message attributes or in the options list if there are
+  no such attributes.
+
+  However, note that we can't be sure what comes from the other end of the wire,
+  so we don't know if those attributes will be there (STUN/TURN RFCs define such
+  behaviour, e.g. TURN server never includes USERNAME attribute in responses).
+
+  Decoding will fail if necessary values (username, realm and secret) can't
+  be found, so it's better to always pass these values as options just to be
+  sure.
+
+  ## Available options
+
+  Same as in `encode/2`.
   """
-  @spec decode(binary)
+  @spec decode(binary, options :: Keyword.t)
     :: {:ok, Params.t} | {:ok, Params.t, extra :: binary} | {:error, struct}
-  def decode(bin) when is_binary(bin) and byte_size(bin) < 20 do
+  def decode(binary, options \\ [])
+  def decode(bin, _) when is_binary(bin) and byte_size(bin) < 20 do
     {:error, HeaderLengthError.exception(binary: bin)}
   end
-  def decode(<<header::20-binary, body::binary>>) do
-    meta = %Meta{header: header, body: body}
+  def decode(<<header::20-binary, body::binary>>, options) do
+    meta = %Meta{header: header, body: body, options: options}
     with {:ok, meta} <- decode_header(meta),
-         {:ok, meta} <- Body.decode(meta) do
+         {:ok, meta} <- Body.decode(meta),
+         {:ok, meta} <- MessageIntegrity.verify(meta) do
       maybe_with_extra(meta)
     end
   end

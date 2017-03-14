@@ -449,3 +449,74 @@ defmodule Jerboa.Format.RequestedTransport.LengthError do
                   "Expected 4 bytes, found: #{length}"}
   end
 end
+
+defmodule Jerboa.Format.MessageIntegrity.FormatError do
+  @moduledoc """
+  Error indicating badly encoded MESSAGE-INTEGRITY attribute found
+  in STUN message
+
+  MESSAGE-INTEGRITY value must be 20 bytes long, any other value results
+  in this error.
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "Invalid value length or declared length. MESSAGE-INTEGRIY value " <>
+      "must be 20 bytes long"}
+  end
+end
+
+defmodule Jerboa.Format.MessageIntegrity.UsernameMissingError do
+  @moduledoc """
+  Error indicating attempt to verify MESSAGE-INTEGRITY when USERNAME attribute
+  is not present in STUN message or username isn't provided in decoding options
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "USERNAME attribute not found in message attributes " <>
+      "or in decoding options list"}
+  end
+end
+
+defmodule Jerboa.Format.MessageIntegrity.SecretMissingError do
+  @moduledoc """
+  Error indicating attempt to verify MESSAGE-INTEGRITY when secret isn't
+  provided in decoding options list
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "secret not found in decoding options list"}
+  end
+end
+
+defmodule Jerboa.Format.MessageIntegrity.RealmMissingError do
+  @moduledoc """
+  Error indicating attempt to verify MESSAGE-INTEGRITY when REALM attribute
+  is not present in STUN message or realm isn't provided in decoding options
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "REALM attribute not found in message attributes " <>
+      "or in decoding options list"}
+  end
+end
+
+defmodule Jerboa.Format.MessageIntegrity.VerificationError do
+  @moduledoc """
+  Error indicating that MESSAGE-INTEGRITY found in STUN message
+  is invalid given message attributes and options passed to decoder
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "MESSAGE-INTEGRITY found in message is invalid"}
+  end
+end
