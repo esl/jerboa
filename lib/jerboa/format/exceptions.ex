@@ -187,14 +187,15 @@ defmodule Jerboa.Format.ComprehensionError do
   end
 end
 
-defmodule Jerboa.Format.XORMappedAddress do
+defmodule Jerboa.Format.XORAddress do
   @moduledoc false
 
   defmodule IPFamilyError do
     @moduledoc """
 
     Error indicating that the IP address family encoded in the
-    XOR-MAPPED-ADDRESS attribute's value is invalid
+    XOR-MAPPED-ADDRESS, XOR-PEER-ADDRESS or XOR-RELAYED-ADDRESS
+    attribute's value is invalid
 
     Valid address families are 0x01 for IPv4 and 0x02 for IPv6.
 
@@ -218,11 +219,10 @@ defmodule Jerboa.Format.XORMappedAddress do
   defmodule LengthError do
     @moduledoc """
 
-    Error indicating that the XOR-MAPPED-ADDRESS attribute has invalid
-    length
+    Error indicating that the XOR-MAPPED-ADDRESS, XOR-PEER-ADDRESS or
+    XOR-RELAYED-ADDRESS attribute has invalid length
 
-    The XOR-MAPPED-ADDRESS attribute is encoded into 8 bytes for IPv4
-    and 20 bytes for IPv6.
+    These attributes are encoded into 8 bytes for IPv4 and 20 bytes for IPv6.
 
     Exception struct fields:
 
@@ -243,7 +243,8 @@ defmodule Jerboa.Format.XORMappedAddress do
     @moduledoc """
 
     Error indicating that the IP address family and IP address length
-    of the XOR-MAPPED-ADDRESS attribute don't make sense
+    of the XOR-MAPPED-ADDRESS, XOR-PEER-ADDRESS or XOR-RELAYED-ADDRESS
+    attributes don't make sense
 
     For example: the IP address family value may be 0x01 (IPv4) while
     the length of an address is 16 bytes, as in IPv6.
@@ -251,7 +252,7 @@ defmodule Jerboa.Format.XORMappedAddress do
     Exception struct fields:
 
     * `:family` - the IP address family given in the
-      XOR-MAPPED-ADDRESS attribute (either `<<0x01>>` or `<<0x02>>`)
+      XOR-*-ADDRESS attribute (either `<<0x01>>` or `<<0x02>>`)
 
     """
 

@@ -5,7 +5,8 @@ defmodule Jerboa.Format.Body.AttributeTest do
 
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
-                                      Username, Realm, ErrorCode}
+                                      Username, Realm, ErrorCode,
+                                      XORPeerAddress, XORRelayedAddress}
   alias Jerboa.Params
   alias Jerboa.Format.Meta
 
@@ -96,6 +97,48 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0009
       assert length_correct?(bin, total(padding_and_code: 4, reason: byte_size(reason)))
     end
+
+    test "IPv4 XORPeerAddress as a TLV" do
+      attr = %XORPeerAddress{port: 0, address: {0, 0, 0, 0}, family: :ipv4}
+      meta = %Meta{params: Params.new()}
+
+      {_, bin} = Attribute.encode meta, attr
+
+      assert type(bin) === 0x0012
+      assert length_correct?(bin, total(address: 4, other: 4))
+    end
+
+    test "IPv6 XORPeerAddress as a TLV" do
+      attr = %XORPeerAddress{port: 0, address: {0, 0, 0, 0, 0, 0, 0, 0},
+                             family: :ipv6}
+      meta = %Meta{params: Params.new()}
+
+      {_, bin} = Attribute.encode meta, attr
+
+      assert type(bin) === 0x0012
+      assert length_correct?(bin, total(address: 16, other: 4))
+    end
+
+    test "IPv4 XORRelayedAddress as a TLV" do
+      attr = %XORRelayedAddress{port: 0, address: {0, 0, 0, 0}, family: :ipv4}
+      meta = %Meta{params: Params.new()}
+
+      {_, bin} = Attribute.encode meta, attr
+
+      assert type(bin) === 0x0016
+      assert length_correct?(bin, total(address: 4, other: 4))
+    end
+
+    test "IPv6 XORRelayedAddress as a TLV" do
+      attr = %XORRelayedAddress{port: 0, address: {0, 0, 0, 0, 0, 0, 0, 0},
+                                family: :ipv6}
+      meta = %Meta{params: Params.new()}
+
+      {_, bin} = Attribute.encode meta, attr
+
+      assert type(bin) === 0x0016
+      assert length_correct?(bin, total(address: 16, other: 4))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -160,6 +203,24 @@ defmodule Jerboa.Format.Body.AttributeTest do
       {_, bin} = Attribute.encode(meta, attr)
 
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0009, value(bin))
+    end
+
+    test "XOR-PEER-ADDRESS" do
+      attr = %XORPeerAddress{family: :ipv4, address: {0, 0, 0, 0}, port: 0}
+      meta = %Meta{params: Params.new}
+
+      {_, bin} = Attribute.encode(meta, attr)
+
+      assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0012, value(bin))
+    end
+
+    test "XOR-RELAYED-ADDRESS" do
+      attr = %XORRelayedAddress{family: :ipv4, address: {0, 0, 0, 0}, port: 0}
+      meta = %Meta{params: Params.new}
+
+      {_, bin} = Attribute.encode(meta, attr)
+
+      assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0016, value(bin))
     end
   end
 end

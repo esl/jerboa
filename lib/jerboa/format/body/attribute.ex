@@ -5,7 +5,8 @@ defmodule Jerboa.Format.Body.Attribute do
 
   alias Jerboa.Format.ComprehensionError
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
-                                      Username, Realm, ErrorCode}
+                                      Username, Realm, ErrorCode,
+                                      XORRelayedAddress, XORPeerAddress}
   alias Jerboa.Format.Meta
 
   defprotocol Encoder do
@@ -26,7 +27,8 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, meta)
   end
 
-  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm, ErrorCode]
+  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
+                ErrorCode, XORRelayedAddress, XORPeerAddress]
 
   @biggest_16 65_535
 
