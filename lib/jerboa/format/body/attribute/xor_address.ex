@@ -5,12 +5,13 @@ defmodule Jerboa.Format.Body.Attribute.XORAddress do
 
   use Bitwise
 
-  alias Jerboa.Format.Attribute.XORMappedAddress
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, XORPeerAddress,
+                                      XORRelayedAddress}
   alias Jerboa.Format.XORAddress.{LengthError, IPFamilyError, IPArityError}
   alias Jerboa.Format.Meta
   alias Jerboa.Params
 
-  @type t :: XORMappedAddress.t
+  @type t :: XORMappedAddress.t | XORPeerAddress.t | XORRelayedAddress.t
 
   @ipv4 <<0x01::8>>
   @ipv6 <<0x02::8>>
