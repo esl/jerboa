@@ -3,7 +3,7 @@ defmodule Jerboa.Format do
   Encode and decode the STUN wire format
   """
 
-  alias Jerboa.Format.{Meta, Header,Body, MessageIntegrity}
+  alias Jerboa.Format.{Meta, Header, Body, MessageIntegrity}
   alias Jerboa.Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Params
 
