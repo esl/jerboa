@@ -66,9 +66,7 @@ defmodule Jerboa.FormatTest do
         packet = <<0::2, type::bits, 0::16, @magic::32, 0::96,
           extra::binary>>
 
-        {:ok, message} = Format.decode packet
-
-        assert ^extra = message.extra
+        assert {:ok, _, ^extra} = Format.decode packet
       end
     end
   end

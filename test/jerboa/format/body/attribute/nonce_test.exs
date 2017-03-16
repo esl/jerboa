@@ -4,11 +4,12 @@ defmodule Jerboa.Format.Body.Attribute.NonceTest do
 
   alias Jerboa.Format.Body.Attribute.Nonce
   alias Jerboa.Format.Nonce.LengthError
+  alias Jerboa.Format.Meta
 
   describe "decode/1" do
     test "NONCE attribute of valid length" do
       ptest value: string(max: Nonce.max_chars) do
-        assert {:ok, %Nonce{value: value}} == Nonce.decode(value)
+        assert {:ok, _, %Nonce{value: ^value}} = Nonce.decode(value, %Meta{})
       end
     end
 
@@ -16,7 +17,8 @@ defmodule Jerboa.Format.Body.Attribute.NonceTest do
       length = Nonce.max_chars + 1
       value = String.duplicate("a", length)
 
-      assert {:error, %LengthError{length: ^length}} = Nonce.decode(value)
+      assert {:error, %LengthError{length: ^length}} =
+        Nonce.decode(value, %Meta{})
     end
   end
 

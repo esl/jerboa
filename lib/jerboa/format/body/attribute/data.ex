@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.Data do
   """
 
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defstruct content: ""
 
@@ -22,21 +22,21 @@ defmodule Jerboa.Format.Body.Attribute.Data do
     @spec type_code(Data.t) :: integer
     def type_code(_), do: @type_code
 
-    @spec encode(Data.t, Params.t) :: binary
-    def encode(attr, _), do: Data.encode(attr)
+    @spec encode(Data.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta), do: {meta, Data.encode(attr)}
   end
 
   defimpl Decoder do
     alias Jerboa.Format.Body.Attribute.Data
 
-    @spec decode(Data.t, value :: binary, params :: Params.t)
-      :: {:ok, Data.t} | {:error, struct}
-    def decode(_, value, _), do: Data.decode(value)
+    @spec decode(Data.t, value :: binary, meta :: Meta.t)
+      :: {:ok, Meta.t, Data.t} | {:error, struct}
+    def decode(_, value, meta), do: Data.decode(value, meta)
   end
 
   @doc false
   def encode(%__MODULE__{content: content}) when is_binary(content), do: content
 
   @doc false
-  def decode(value), do: {:ok, %__MODULE__{content: value}}
+  def decode(value, meta), do: {:ok, meta, %__MODULE__{content: value}}
 end

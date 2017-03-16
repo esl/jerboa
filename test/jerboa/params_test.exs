@@ -56,34 +56,6 @@ defmodule Jerboa.ParamsTest do
     assert id == Params.get_id(p)
   end
 
-  test "get_body/1 retrieves body field" do
-    body = "hello"
-    p = Params.new() |> Map.put(:body, body)
-
-    assert body == Params.get_body(p)
-  end
-
-  test "get_header/1 retrieves header field" do
-    header = "hello"
-    p = Params.new() |> Map.put(:header, header)
-
-    assert header == Params.get_header(p)
-  end
-
-  test "get_extra/1 retrieves extra field" do
-    extra = "hello"
-    p = Params.new() |> Map.put(:extra, extra)
-
-    assert extra == Params.get_extra(p)
-  end
-
-  test "get_length/1 retrieves length field" do
-    length = 120
-    p = Params.new() |> Map.put(:length, length)
-
-    assert length == Params.get_length(p)
-  end
-
   test "put_attrs/1 sets whole attributes list" do
     attrs = List.duplicate(%XORMappedAddress{}, 3)
 

@@ -2,13 +2,14 @@ defmodule Jerboa.Format.Header.Length do
   @moduledoc false
 
   alias Jerboa.Format.Last2BitsError
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
-  def encode(%Params{body: b}) when is_binary(b) do
-    <<byte_size(b)::integer-unit(8)-size(2)>>
+  @spec encode(Meta.t) :: length :: binary
+  def encode(%Meta{body: b}) when is_binary(b) do
+    <<byte_size(b)::16>>
   end
 
-  def decode(x = <<_::14, 0::2>>) do
+  def decode(<<_::14, 0::2>> = x) do
     {:ok, :binary.decode_unsigned x}
   end
   def decode(bin_length) do

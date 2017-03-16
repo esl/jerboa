@@ -4,9 +4,11 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   RFC](https://tools.ietf.org/html/rfc5389#section-15.2)
   """
 
+  alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.XORMappedAddress.{LengthError,IPFamilyError,IPArityError}
   alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   import Bitwise
 
@@ -33,16 +35,18 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
     @spec type_code(XORMappedAddress.t) :: integer
     def type_code(_attr), do: @type_code
 
-    @spec encode(XORMappedAddress.t, Params.t) :: binary
-    def encode(attr, params), do: XORMappedAddress.encode(attr, params)
+    @spec encode(XORMappedAddress.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta) do
+      {meta, XORMappedAddress.encode(attr, meta.params)}
+    end
   end
 
   defimpl Decoder  do
     alias Jerboa.Format.Body.Attribute.XORMappedAddress
 
-    @spec decode(XORMappedAddress.t, value :: binary, params :: Params.t)
-      :: {:ok, XORMappedAddress.t} | {:error, struct}
-    def decode(_, value, params), do: XORMappedAddress.decode(params, value)
+    @spec decode(XORMappedAddress.t, value :: binary, meta :: Meta.t)
+      :: {:ok, Meta.t, XORMappedAddress.t} | {:error, struct}
+    def decode(_, value, meta), do: XORMappedAddress.decode(value, meta)
   end
 
   @doc false
@@ -56,21 +60,21 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
   end
 
   @doc false
-  @spec decode(Params.t, value :: binary) :: {:ok, Attribute.t}
-                                           | {:error, struct}
-  def decode(_, <<_::8, @ip_4, port::16, addr::32-bits>>) do
-    {:ok, attribute(addr, port)}
+  @spec decode(value :: binary, Meta.t) :: {:ok, Attribute.t} | {:error, struct}
+  def decode(<<_::8, @ip_4, port::16, addr::32-bits>>, meta) do
+    {:ok, meta, attribute(addr, port)}
   end
-  def decode(%Params{identifier: id}, <<_::8, @ip_6, port::16, addr::128-bits>>) do
-    {:ok, attribute(addr, port, id)}
+  def decode(<<_::8, @ip_6, port::16, addr::128-bits>>,
+    %Meta{params: %Params{identifier: id}} = meta) do
+    {:ok, meta, attribute(addr, port, id)}
   end
-  def decode(_, value) when byte_size(value) != 20 and byte_size(value) != 8 do
+  def decode(value, _) when byte_size(value) != 20 and byte_size(value) != 8 do
     {:error, LengthError.exception(length: byte_size(value))}
   end
-  def decode(_, <<_::8, f::8-bits, _::16, _::binary>>) when f == @ip_4 or f == @ip_6 do
+  def decode(<<_::8, f::8-bits, _::16, _::binary>>, _) when f == @ip_4 or f == @ip_6 do
     {:error, IPArityError.exception(family: f)}
   end
-  def decode(_, <<_::8, f::8, _::binary>>) do
+  def decode(<<_::8, f::8, _::binary>>, _) do
     {:error, IPFamilyError.exception(number: f)}
   end
 

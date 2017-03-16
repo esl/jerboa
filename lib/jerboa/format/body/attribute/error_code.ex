@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
 
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.ErrorCode.{FormatError, LengthError}
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defstruct [:code, :name, reason: ""]
 
@@ -64,16 +64,16 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
     @spec type_code(ErrorCode.t) :: integer
     def type_code(_), do: @type_code
 
-    @spec encode(ErrorCode.t, Params.t) :: binary
-    def encode(attr, _), do: ErrorCode.encode(attr)
+    @spec encode(ErrorCode.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta), do: {meta, ErrorCode.encode(attr)}
   end
 
   defimpl Decoder do
     alias Jerboa.Format.Body.Attribute.ErrorCode
 
-    @spec decode(ErrorCode.t, value :: binary, Params.t)
-      :: {:ok, ErrorCode.t} | {:error, struct}
-    def decode(_, value, _), do: ErrorCode.decode(value)
+    @spec decode(ErrorCode.t, value :: binary, Meta.t)
+      :: {:ok, Meta.t, ErrorCode.t} | {:error, struct}
+    def decode(_, value, meta), do: ErrorCode.decode(value, meta)
   end
 
   @doc false
@@ -98,10 +98,11 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
   end
 
   @doc false
-  def decode(<<0::21, error_class::3, error_number::8, reason::binary>>) do
+  def decode(<<0::21, error_class::3, error_number::8, reason::binary>>, meta) do
     code = code(error_class, error_number)
     if reason_valid?(reason) && code_valid?(code) do
-      {:ok, %__MODULE__{
+      {:ok, meta,
+       %__MODULE__{
           code: code,
           name: code_to_name(code),
           reason: reason
@@ -111,7 +112,7 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
             reason: reason)}
     end
   end
-  def decode(bin) do
+  def decode(bin, _) do
     {:error, LengthError.exception(length: byte_size(bin))}
   end
 

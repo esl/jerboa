@@ -3,6 +3,7 @@ defmodule Jerboa.Format.Header.Type do
 
   alias Jerboa.Format.UnknownMethodError
   alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defmodule Class do
     @moduledoc """
@@ -55,8 +56,9 @@ defmodule Jerboa.Format.Header.Type do
     def decode(<<m::12>>),     do: {:error, UnknownMethodError.exception(method: m)}
   end
 
-  def encode(%Params{class: x, method: y}) do
-    encode Class.encode(x), Method.encode(y)
+  @spec encode(Meta.t) :: type :: binary
+  def encode(%Meta{params: %Params{class: x, method: y}}) do
+    encode(Class.encode(x), Method.encode(y))
   end
 
   def decode(<<m11_7::5-bits, c1::1, m6_4::3-bits, c0::1, m3_0::4-bits>>) do

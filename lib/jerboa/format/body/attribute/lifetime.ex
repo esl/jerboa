@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
 
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.Lifetime.LengthError
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defstruct duration: 0
 
@@ -27,16 +27,16 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
     @spec type_code(Lifetime.t) :: integer
     def type_code(_), do: @type_code
 
-    @spec encode(Lifetime.t, Params.t) :: binary
-    def encode(attr, _), do: Lifetime.encode(attr)
+    @spec encode(Lifetime.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta), do: {meta, Lifetime.encode(attr)}
   end
 
   defimpl Decoder do
     alias Jerboa.Format.Body.Attribute.Lifetime
 
-    @spec decode(Lifetime.t, value :: binary, params :: Params.t)
-      :: {:ok, Lifetime.t} | {:error, struct}
-    def decode(_, value, _), do: Lifetime.decode(value)
+    @spec decode(Lifetime.t, value :: binary, meta :: Meta.t)
+      :: {:ok, Meta.t, Lifetime.t} | {:error, struct}
+    def decode(_, value, meta), do: Lifetime.decode(value, meta)
   end
 
   @doc false
@@ -47,11 +47,10 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
   end
 
   @doc false
-  @spec decode(value :: binary) :: {:ok, Attribute.t} | {:error, struct}
-  def decode(<<duration::32>>) do
-    {:ok, %__MODULE__{duration: duration}}
+  def decode(<<duration::32>>, meta) do
+    {:ok, meta, %__MODULE__{duration: duration}}
   end
-  def decode(value) do
+  def decode(value, _) do
     {:error, LengthError.exception(length: byte_size(value))}
   end
 

@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.Nonce do
 
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.Nonce.LengthError
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defstruct value: ""
 
@@ -22,19 +22,19 @@ defmodule Jerboa.Format.Body.Attribute.Nonce do
     alias Jerboa.Format.Body.Attribute.Nonce
     @type_code 0x0015
 
-    @spec type_code(Data.t) :: integer
+    @spec type_code(Nonce.t) :: integer
     def type_code(_), do: @type_code
 
-    @spec encode(Nonce.t, Params.t) :: binary
-    def encode(attr, _), do: Nonce.encode(attr)
+    @spec encode(Nonce.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta), do: {meta, Nonce.encode(attr)}
   end
 
   defimpl Decoder do
     alias Jerboa.Format.Body.Attribute.Nonce
 
-    @spec decode(Nonce.t, value :: binary, params :: Params.t)
-      :: {:ok, Nonce.t} | {:error, struct}
-    def decode(_, value, _), do: Nonce.decode(value)
+    @spec decode(Nonce.t, value :: binary, meta :: Meta.t)
+      :: {:ok, Meta.t, Nonce.t} | {:error, struct}
+    def decode(_, value, meta), do: Nonce.decode(value, meta)
   end
 
   @doc false
@@ -47,10 +47,10 @@ defmodule Jerboa.Format.Body.Attribute.Nonce do
   end
 
   @doc false
-  def decode(value) do
+  def decode(value, meta) do
     length = String.length(value)
     if String.valid?(value) && length <= @max_chars do
-      {:ok, %__MODULE__{value: value}}
+      {:ok, meta, %__MODULE__{value: value}}
     else
       {:error, LengthError.exception(length: length)}
     end

@@ -4,11 +4,12 @@ defmodule Jerboa.Format.Body.Attribute.RealmTest do
 
   alias Jerboa.Format.Body.Attribute.Realm
   alias Jerboa.Format.Realm.LengthError
+  alias Jerboa.Format.Meta
 
   describe "decode/1" do
     test "REALM attribtue of valid length" do
       ptest value: string(max: Realm.max_chars) do
-        assert {:ok, %Realm{value: value}} == Realm.decode(value)
+        assert {:ok, _, %Realm{value: ^value}} = Realm.decode(value, %Meta{})
       end
     end
 
@@ -16,7 +17,7 @@ defmodule Jerboa.Format.Body.Attribute.RealmTest do
       length = Realm.max_chars + 1
       value = String.duplicate("a", length)
 
-      assert {:error, %LengthError{length: ^length}} = Realm.decode(value)
+      assert {:error, %LengthError{length: ^length}} = Realm.decode(value, %Meta{})
     end
   end
 

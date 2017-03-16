@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.Attribute.Username do
 
   alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
   alias Jerboa.Format.Username.LengthError
-  alias Jerboa.Params
+  alias Jerboa.Format.Meta
 
   defstruct value: ""
 
@@ -26,16 +26,16 @@ defmodule Jerboa.Format.Body.Attribute.Username do
     @spec type_code(Username.t) :: integer
     def type_code(_), do: @type_code
 
-    @spec encode(Username.t, Params.t) :: binary
-    def encode(attr, _), do: Username.encode(attr)
+    @spec encode(Username.t, Meta.t) :: {Meta.t, binary}
+    def encode(attr, meta), do: {meta, Username.encode(attr)}
   end
 
   defimpl Decoder do
     alias Jerboa.Format.Body.Attribute.Username
 
-    @spec decode(Username.t, value :: binary, params :: Params.t)
+    @spec decode(Username.t, value :: binary, meta :: Meta.t)
       :: {:ok, Username.t} | {:error, struct}
-    def decode(_, value, _), do: Username.decode(value)
+    def decode(_, value, meta), do: Username.decode(value, meta)
   end
 
   @doc false
@@ -50,10 +50,10 @@ defmodule Jerboa.Format.Body.Attribute.Username do
   def encode(_), do: raise ArgumentError
 
   @doc false
-  def decode(value) do
+  def decode(value, meta) do
     length = byte_size(value)
     if String.valid?(value) && length <= @max_length do
-      {:ok, %__MODULE__{value: value}}
+      {:ok, meta, %__MODULE__{value: value}}
     else
       {:error, LengthError.exception(length: length)}
     end

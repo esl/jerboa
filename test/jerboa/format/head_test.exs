@@ -1,5 +1,6 @@
 defmodule Jerboa.Format.HeaderTest do
   use ExUnit.Case, async: true
+  use Quixir
 
   alias Jerboa.Format.Header
   alias Jerboa.Format.{First2BitsError,
@@ -7,7 +8,7 @@ defmodule Jerboa.Format.HeaderTest do
   alias Jerboa.Format.Header.{MagicCookie, Type.Method, Type.Class}
   alias Jerboa.Format.Header
   alias Jerboa.Params
-  use Quixir
+  alias Jerboa.Format.Meta
 
   @magic MagicCookie.value
   @helpers [first_2_bits: 1,
@@ -26,7 +27,7 @@ defmodule Jerboa.Format.HeaderTest do
       parameters = FormatHelper.binding_request()
 
       ## When:
-      %Jerboa.Params{header: bin} = Header.encode(parameters)
+      %Meta{header: bin} = Header.encode(%Meta{params: parameters})
 
       ## Then:
       assert byte_size(bin) === 20
@@ -97,16 +98,16 @@ defmodule Jerboa.Format.HeaderTest do
         decoded_class = Class.decode(bit_class)
         {:ok, decoded_method} = Method.decode(bit_method)
 
-        {:ok, message} = Header.decode parameterize(packet)
+        {:ok, %Meta{params: params}} = Header.decode parameterize(packet)
 
-        assert decoded_method == message.method
-        assert decoded_class == message.class
+        assert decoded_method == params.method
+        assert decoded_class == params.class
       end
     end
   end
 
   test "Header.Length.encode/1 encodes length on 16 bits (two bytes)" do
-    x = Header.Length.encode(%Params{body: <<0,1,0,1>>})
+    x = Header.Length.encode(%Meta{body: <<0,1,0,1>>})
 
     assert <<4::size(16)>> == x
   end
@@ -123,14 +124,16 @@ defmodule Jerboa.Format.HeaderTest do
       for class <- classes do
         params = %Params{class: class, method: method}
 
-        bin = Header.Type.encode(params)
+        bin = Header.Type.encode(%Meta{params: params})
 
-        assert {:ok, ^class, ^method} = Header.Type.decode(bin)
+        assert {:ok, decoded_class, decoded_method} = Header.Type.decode(bin)
+        assert decoded_class == class
+        assert decoded_method == method
       end
     end
   end
 
   defp parameterize(x) do
-    %Jerboa.Params{header: x}
+    %Meta{header: x}
   end
 end

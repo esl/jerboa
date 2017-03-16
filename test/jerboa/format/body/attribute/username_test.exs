@@ -4,11 +4,12 @@ defmodule Jerboa.Format.Body.Attribute.UsernameTest do
 
   alias Jerboa.Format.Body.Attribute.Username
   alias Jerboa.Format.Username.LengthError
+  alias Jerboa.Format.Meta
 
   describe "decode/1" do
     test "USERNAME attribute of valid length" do
       ptest value: string(max: Username.max_length, chars: :ascii) do
-        assert {:ok, %Username{value: value}} == Username.decode(value)
+        assert {:ok, _, %Username{value: ^value}} = Username.decode(value, %Meta{})
       end
     end
 
@@ -16,7 +17,7 @@ defmodule Jerboa.Format.Body.Attribute.UsernameTest do
       length = Username.max_length + 1
       value = String.duplicate("a", length)
 
-      assert {:error, %LengthError{length: ^length}} = Username.decode(value)
+      assert {:error, %LengthError{length: ^length}} = Username.decode(value, %Meta{})
     end
   end
 
