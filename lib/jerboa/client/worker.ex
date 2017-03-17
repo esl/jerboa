@@ -6,8 +6,18 @@ defmodule Jerboa.Client.Worker do
   alias :gen_udp, as: UDP
   alias Jerboa.Params
   alias Jerboa.Format.Body.Attribute.XORMappedAddress
+  alias Jerboa.Format
 
-  defstruct [:server, :socket]
+  import Kernel, except: [binding: 1]
+
+  defstruct [:server, :socket, :mapped_address]
+
+  @type address :: {Jerboa.Client.ip, Jerboa.Client.port_no}
+  @type t :: %__MODULE__{
+    server: address,
+    socket: UDP.socket,
+    mapped_address: address
+  }
 
   @system_allocated_port 0
 
@@ -23,14 +33,17 @@ defmodule Jerboa.Client.Worker do
   end
 
   def handle_call(:bind, _, state) do
-    msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :request))
-    response = call(socket(state), server(state), msg)
-    {:ok, params} = Jerboa.Format.decode(response)
-    {:reply, reflexive_candidate(params), state}
+    msg = binding(:request)
+    params = request(msg, state)
+    state = %{state | mapped_address: mapped_address(params)}
+    {:reply, state.mapped_address, state}
   end
-  def handle_call(:persist, _, state) do
-    msg = Jerboa.Format.encode(Jerboa.Params.put_class(binding_(), :indication))
-    {:reply, cast(socket(state), server(state), msg), state}
+
+
+  def handle_cast(:persist, state) do
+    msg = binding(:indication)
+    indication(msg, state)
+    {:noreply, state}
   end
 
   def terminate(_, state) do
@@ -45,26 +58,30 @@ defmodule Jerboa.Client.Worker do
     s
   end
 
-  defp binding_ do
+  defp binding(class) do
     Params.new()
+    |> Params.put_class(class)
     |> Params.put_method(:binding)
+    |> Format.encode()
   end
 
-  defp reflexive_candidate(params) do
+  defp mapped_address(params) do
     xor_mapped_addr = Params.get_attr(params, XORMappedAddress)
     {xor_mapped_addr.address, xor_mapped_addr.port}
   end
 
-  defp call(socket, {address, port}, request) do
-    :ok = UDP.send(socket, address, port, request)
+  defp request(msg, state) do
+    socket = socket(state)
+    {address, port} = server(state)
+    :ok = UDP.send(socket, address, port, msg)
     {:ok, {^address, ^port, response}} = UDP.recv(socket, 0, timeout())
-    response
+    Format.decode!(response)
   end
 
-  defp cast(socket, {address, port}, indication) do
-    :ok = UDP.send(socket, address, port, indication)
-    {:error, :timeout} = UDP.recv(socket, 0, timeout())
-    :ok
+  defp indication(msg, state) do
+    socket = socket(state)
+    {address, port} = server(state)
+    :ok = UDP.send(socket, address, port, msg)
   end
 
   def timeout do

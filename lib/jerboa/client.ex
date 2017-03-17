@@ -55,7 +55,7 @@ defmodule Jerboa.Client do
   """
   @spec bind(t) :: {ip, port_no} | no_return
   def bind(client) do
-    GenServer.call(client, :bind)
+    GenServer.call(client, :bind, 2 * timeout())
   end
 
   @doc """
@@ -63,7 +63,8 @@ defmodule Jerboa.Client do
   """
   @spec persist(t) :: :ok
   def persist(client) do
-    GenServer.call(client, :persist, 2 * timeout())
+    GenServer.cast(client, :persist)
+  end
   end
 
   @doc """
