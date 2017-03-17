@@ -18,7 +18,7 @@ defmodule Jerboa.Client do
   attribute, the client simply crashes.
 
       iex> Jerboa.Client.bind client_pid
-      {{192, 168, 1, 20}, 32780}
+      {:ok, {{192, 168, 1, 20}, 32780}}
 
   `persist/1` sends a Binding indication to a server, which is not meant to return
   any response, but is an attempt to refresh NAT bindings in routers on the path to a server.
@@ -29,31 +29,35 @@ defmodule Jerboa.Client do
   @type t :: pid
   @type port_no :: :inet.port_number
   @type ip :: :inet.ip_address
+  @type address :: {ip, port_no}
+  @type start_opts :: [start_opt]
+  @type start_opt :: {:server, address}
 
   alias Jerboa.Client
 
   @doc """
   Starts STUN client process
 
-      iex> Jerboa.Client.start server: %{address: {192, 168, 1, 20}, port: 3478}
+      iex> Jerboa.Client.start server: {{192, 168, 1, 20}, 3478}
       {:ok, #PID<...>}
 
   ### Options
 
-  * `server` - required - a map with `:address` and `:port` keys
+  * `:server` - required - a tuple with server's address and port
   """
   @spec start(options :: Keyword.t) :: Supervisor.on_start_child
-  def start(x) do
-    Supervisor.start_child(Client.Supervisor, [server(x)])
+  def start(opts) do
+    Supervisor.start_child(Client.Supervisor, [opts])
   end
 
   @doc """
   Sends Binding request to a server
 
-  Returns reflexive address and port on successful response. Otherwise the
-  client process crashes.
+  Returns reflexive address and port on successful response. Returns
+  error tuple if response from the server is invalid. Client process
+  crashes if response is not a valid STUN message.
   """
-  @spec bind(t) :: {ip, port_no} | no_return
+  @spec bind(t) :: {:ok, address} | {:error, :bad_response} | no_return
   def bind(client) do
     GenServer.call(client, :bind, 2 * timeout())
   end
@@ -65,7 +69,6 @@ defmodule Jerboa.Client do
   def persist(client) do
     GenServer.cast(client, :persist)
   end
-  end
 
   @doc """
   Stops the client
@@ -74,10 +77,6 @@ defmodule Jerboa.Client do
     when error: :not_found | :simple_one_for_one
   def stop(client) do
     Supervisor.terminate_child(Client.Supervisor, client)
-  end
-
-  defp server(server: %{address: a, port: p}) do
-    [address: a, port: p]
   end
 
   @spec timeout :: non_neg_integer
