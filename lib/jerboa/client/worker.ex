@@ -8,7 +8,9 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.Transaction
 
-  defstruct [:server, :socket, :mapped_address, transaction: %Transaction{}]
+  defstruct [:server, :socket, :mapped_address, :username, :secret,
+             :realm, :nonce, :relayed_address, :lifetime,
+             transaction: %Transaction{}]
 
   @type socket :: UDP.socket
   @type state :: %__MODULE__{
@@ -16,6 +18,12 @@ defmodule Jerboa.Client.Worker do
     socket: socket,
     transaction: Transaction.t,
     mapped_address: Client.address,
+    username: String.t,
+    secret: String.t,
+    realm: String.t,
+    nonce: String.t,
+    relayed_address: Client.address,
+    lifetime: non_neg_integer
   }
 
   @system_allocated_port 0
@@ -41,6 +49,14 @@ defmodule Jerboa.Client.Worker do
       |> send_req()
       |> Protocol.eval_bind_resp()
     {:reply, result, new_state}
+  end
+  def handle_call(:allocate, _, state) do
+    if state.relayed_address do
+      {:reply, {:ok, state.relayed_address}, state}
+    else
+      {result, new_state} = request_allocation(state)
+      {:reply, result, new_state}
+    end
   end
 
   def handle_cast(:persist, state) do
@@ -76,7 +92,22 @@ defmodule Jerboa.Client.Worker do
     :ok = UDP.send(socket, address, port, msg)
   end
 
-  def timeout do
+  defp timeout do
     Keyword.fetch!(Application.fetch_env!(:jerboa, :client), :timeout)
+  end
+
+  @spec request_allocation(state) :: {result :: term, state}
+  defp request_allocation(state) do
+    {result, new_state} =
+      state
+      |> Protocol.allocate_req()
+      |> send_req()
+      |> Protocol.eval_allocate_resp()
+    case result do
+      :retry ->
+        request_allocation(new_state)
+      _ ->
+        {result, new_state}
+    end
   end
 end

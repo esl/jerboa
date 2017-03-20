@@ -32,6 +32,7 @@ defmodule Jerboa.Client do
   @type address :: {ip, port_no}
   @type start_opts :: [start_opt]
   @type start_opt :: {:server, address}
+  @type error :: :bad_response | Jerboa.Format.Body.Attribute.ErrorCode.name
 
   alias Jerboa.Client
 
@@ -44,6 +45,8 @@ defmodule Jerboa.Client do
   ### Options
 
   * `:server` - required - a tuple with server's address and port
+  * `:username` - required - username used for authentication
+  * `:secret` - required - secret used for authentication
   """
   @spec start(options :: Keyword.t) :: Supervisor.on_start_child
   def start(opts) do
@@ -68,6 +71,15 @@ defmodule Jerboa.Client do
   @spec persist(t) :: :ok
   def persist(client) do
     GenServer.cast(client, :persist)
+  end
+
+  @doc """
+  Creates allocation on the server or returns relayed transport
+  address if client already has an allocation
+  """
+  @spec allocate(t) :: {:ok, address} | {:error, error}
+  def allocate(client) do
+    GenServer.call(client, :allocate)
   end
 
   @doc """
