@@ -6,7 +6,8 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
                                       Username, Realm, ErrorCode,
-                                      XORPeerAddress, XORRelayedAddress}
+                                      XORPeerAddress, XORRelayedAddress,
+                                      RequestedTransport}
   alias Jerboa.Params
   alias Jerboa.Format.Meta
 
@@ -139,6 +140,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) === 0x0016
       assert length_correct?(bin, total(address: 16, other: 4))
     end
+
+    test "REQUESTED-TRANPOSRT as a TLV" do
+      attr = %RequestedTransport{protocol: :udp}
+
+      {_, bin} = Attribute.encode %Meta{}, attr
+
+      assert type(bin) == 0x0019
+      assert length_correct?(bin, total(protocol: 1, rffu: 3))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -221,6 +231,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       {_, bin} = Attribute.encode(meta, attr)
 
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0016, value(bin))
+    end
+
+    test "REQUESTED-TRANSPORT" do
+      attr = %RequestedTransport{protocol: :udp}
+      meta = %Meta{}
+
+      {_, bin} = Attribute.encode(meta, attr)
+
+      assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0019, value(bin))
     end
   end
 end
