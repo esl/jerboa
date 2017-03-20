@@ -43,7 +43,7 @@ defmodule Jerboa.Client.Protocol do
   def eval_bind_resp(state) do
     case validate_bind_resp(state) do
       {:ok, new_state} ->
-        {{:ok, new_state.mapped_address}, new_state}
+        {{:ok, new_state.mapped_address}, empty_transaction(new_state)}
       error ->
       {error, state}
     end
@@ -52,8 +52,7 @@ defmodule Jerboa.Client.Protocol do
   @spec allocate_req(Worker.state) :: Worker.state
   def allocate_req(state) do
     params = allocate_params(state)
-    msg = encode_params(params, state)
-    fill_transaction(state, params.identifier, msg)
+    encode_request(params, state)
   end
 
   @spec eval_allocate_resp(Worker.state)
@@ -63,9 +62,9 @@ defmodule Jerboa.Client.Protocol do
   def eval_allocate_resp(state) do
     case handle_allocate_resp(state) do
       {:ok, new_state} ->
-        {{:ok, new_state.relayed_address}, new_state}
+        {{:ok, new_state.relayed_address}, empty_transaction(new_state)}
       {:error, reason} ->
-        {{:error, reason}, %{state | transaction: %Transaction{}}}
+        {{:error, reason}, empty_transaction(state)}
       {:retry, new_state} ->
         {:retry, new_state}
     end
@@ -79,28 +78,19 @@ defmodule Jerboa.Client.Protocol do
       Params.new()
       |> Params.put_class(class)
       |> Params.put_method(:binding)
-    msg = Format.encode(params)
-    fill_transaction(state, params.identifier, msg)
+    encode_request(params, state)
    end
-
-  @spec fill_transaction(Worker.state, id :: binary, msg :: binary)
-    :: Worker.state
-  defp fill_transaction(state, id, msg) do
-    %{state | transaction: %{state.transaction | req: msg, id: id}}
-  end
 
   @spec validate_bind_resp(Worker.state)
     :: {:ok, Worker.state} | {:error, :bad_response}
   defp validate_bind_resp(state) do
-    transaction = state.transaction
-    params = transaction.resp |> Format.decode!()
-    with true <- params.identifier == transaction.id,
+    params = decode_response(state)
+    with :ok <- validate_transaction_id(params, state),
          %{address: addr, port: port} <- Params.get_attr(params, XMA),
          :binding <- Params.get_method(params),
          :success <- Params.get_class(params) do
       mapped_address = {addr, port}
-      {:ok, %{state | mapped_address: mapped_address,
-                      transaction: %Transaction{}}}
+      {:ok, %{state | mapped_address: mapped_address}}
     else
       _ -> {:error, :bad_response}
     end
@@ -124,34 +114,35 @@ defmodule Jerboa.Client.Protocol do
     end
   end
 
-  @spec encode_params(Params.t, Worker.state) :: binary
-  defp encode_params(params, state) do
+  @spec encode_request(Params.t, Worker.state) :: Worker.state
+  defp encode_request(params, state) do
     opts =
       if state.realm do
         [secret: state.secret, realm: state.realm, username: state.username]
       else
         []
       end
-    Format.encode(params, opts)
+    msg = Format.encode(params, opts)
+    %{state | transaction: %Transaction{req: msg, id: params.identifier}}
   end
 
-  @spec decode_message(binary, Worker.state) :: Params.t
-  def decode_message(msg, state) do
+  @spec decode_response(Worker.state) :: Params.t
+  def decode_response(state) do
     opts =
       if state.realm do
         [secret: state.secret, realm: state.realm, username: state.username]
       else
         []
       end
+    msg = state.transaction.resp
     Format.decode!(msg, opts)
   end
 
   @spec handle_allocate_resp(Worker.state)
     :: {:ok, Worker.state} | {:error, Client.error} | {:retry, Worker.state}
   defp handle_allocate_resp(state) do
-    transaction = state.transaction
-    params = transaction.resp |> decode_message(state)
-    with true <- params.identifier == transaction.id,
+    params = decode_response(state)
+    with :ok <- validate_transaction_id(params, state),
          :allocate <- Params.get_method(params),
          :success <- Params.get_class(params),
          %{address: raddr, port: rport, family: :ipv4} <- Params.get_attr(params, XRA),
@@ -161,8 +152,7 @@ defmodule Jerboa.Client.Protocol do
       mapped_address = {maddr, mport}
       new_state = %{state | relayed_address: relayed_address,
                             mapped_address: mapped_address,
-                            lifetime: lifetime,
-                            transaction: %Transaction{}}
+                            lifetime: lifetime}
       {:ok, new_state}
     else
       :failure ->
@@ -182,16 +172,28 @@ defmodule Jerboa.Client.Protocol do
       is_nil error ->
         {:error, :bad_response}
       error.name == :unauthorized && is_nil(state.realm) && realm_attr && nonce_attr ->
-        new_state = %{state | transaction: %Transaction{},
-                              realm: realm_attr.value,
+        new_state = %{state | realm: realm_attr.value,
                               nonce: nonce_attr.value}
         {:retry, new_state}
       error.name == :stale_nonce && nonce_attr ->
-        new_state = %{state | transaction: %Transaction{},
-                              nonce: nonce_attr.value}
+        new_state = %{state | nonce: nonce_attr.value}
         {:retry, new_state}
       true ->
         {:error, error.name}
+    end
+  end
+
+  @spec empty_transaction(Worker.state) :: Worker.state
+  defp empty_transaction(state) do
+    %{state | transaction: %Transaction{}}
+  end
+
+  @spec validate_transaction_id(Params.t, Worker.state) :: :ok | :error
+  def validate_transaction_id(params, state) do
+    if params.identifier == state.transaction.id do
+      :ok
+    else
+      :error
     end
   end
 end

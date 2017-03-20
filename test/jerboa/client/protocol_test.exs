@@ -13,7 +13,7 @@ defmodule Jerboa.Client.ProtocolTest do
   test "bind_req/1 retuns encoded binding request" do
     %{transaction: %{req: msg}} = Protocol.bind_req(%Worker{})
 
-    params= msg |> Format.decode!()
+    params = msg |> Format.decode!()
 
     assert Params.get_class(params) == :request
     assert Params.get_method(params) == :binding
