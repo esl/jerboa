@@ -21,9 +21,10 @@ defmodule Jerboa.Format do
   or passed in options list. However attribute values will always override
   those found in options. Secret *must* be provided in option list.
 
-  If any of these values is missing, message integrity won't be applied
-  and encoding will succeed. None of these values will be validated,
-  so encoding will fail if, for example, provided username is an integer.
+  If any of these values are missing, message integrity won't be applied
+  and encoding will succeed. None of these values (username, realm or secret)
+  will be validated, so encoding will fail if, for example, provided username
+  is an integer.
 
   Note that passing these values in options list *won't add them to
   message attributes list*.
@@ -32,7 +33,7 @@ defmodule Jerboa.Format do
 
   * `:secret` - secret used for calculating message integrity
   * `:username` - username used for calculating message integrity
-    if USERNAME attribute can't be found in params struct
+    if USERNAME attribute can't be found in the params struct
   * `:realm` - realm used for calculating message integrity
     if REALM attribute can't be found in params struct
   """
@@ -74,7 +75,7 @@ defmodule Jerboa.Format do
   ## Verifying message integrity
 
   Similarly to `encode/2` decoder first looks for username and realm
-  in decoded message attributes or in the options list if there are
+  in the decoded message attributes or in the options list if there are
   no such attributes.
 
   However, note that we can't be sure what comes from the other end of the wire,

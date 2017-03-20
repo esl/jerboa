@@ -13,12 +13,16 @@ defmodule Jerboa.Format.MessageIntegrityTest do
   alias Jerboa.Format.MessageIntegrity.SecretMissingError
   alias Jerboa.Format.MessageIntegrity.VerificationError
 
+  @mi_attr_length 24
+
   describe "apply/1" do
     test "does not apply MI when secret is not given" do
       options = [username: "alice", realm: "wonderland"]
-      meta = %Meta{options: options}
+      body_without_mi = <<>>
 
-      assert meta == MessageIntegrity.apply(meta)
+      meta = %Meta{options: options} |> MessageIntegrity.apply()
+
+      assert meta.body == body_without_mi
     end
 
     test "does not apply MI when username is not given" do
@@ -49,7 +53,7 @@ defmodule Jerboa.Format.MessageIntegrityTest do
 
       new_meta = MessageIntegrity.apply(meta)
 
-      assert byte_size(meta.body) + 24 == byte_size(new_meta.body)
+      assert byte_size(meta.body) + @mi_attr_length == byte_size(new_meta.body)
     end
 
     test "applies MI when username as realm are passed as attributes" do
@@ -68,13 +72,14 @@ defmodule Jerboa.Format.MessageIntegrityTest do
 
       new_meta = MessageIntegrity.apply(meta)
 
-      assert byte_size(meta.body) + 24 == byte_size(new_meta.body)
+      assert byte_size(meta.body) + @mi_attr_length == byte_size(new_meta.body)
     end
   end
 
   describe "verify/1" do
-    test "does not verify if MI is empty" do
-      meta = %Meta{}
+    test "changes nothing when MI is empty" do
+      empty_mi = <<>>
+      meta = %Meta{message_integrity: empty_mi}
 
       assert {:ok, meta} == MessageIntegrity.verify(meta)
     end

@@ -107,7 +107,7 @@ defmodule Jerboa.FormatTest do
     assert {:ok, _} = Format.decode(bin, secret: secret)
   end
 
-  test "encode/2 and decode/2 apply and verify MI symmetrically" do
+  test "MI applied with encode/2 is verified byd decode/2 given same secret" do
     username = "alice"
     realm = "wonderland"
     secret = "secret"

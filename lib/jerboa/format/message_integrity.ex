@@ -94,10 +94,7 @@ defmodule Jerboa.Format.MessageIntegrity do
 
   @spec has_message_integrity?(Meta.t) :: boolean
   defp has_message_integrity?(meta) do
-    case meta.message_integrity do
-      <<>> -> false
-      _ -> true
-    end
+    byte_size(meta.message_integrity) > 0
   end
 
   @spec verify_message_integrity(Meta.t) :: :ok | {:error, struct}
