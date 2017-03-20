@@ -9,7 +9,7 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Protocol.Transaction
 
   defstruct [:server, :socket, :mapped_address, :username, :secret,
-             :realm, :nonce, :relayed_address, :lifetime,
+             :realm, :nonce, :relayed_address, :lifetime, :lifetime_timer_ref,
              transaction: %Transaction{}]
 
   @type socket :: UDP.socket
@@ -23,7 +23,8 @@ defmodule Jerboa.Client.Worker do
     realm: String.t,
     nonce: String.t,
     relayed_address: Client.address,
-    lifetime: non_neg_integer
+    lifetime: non_neg_integer,
+    lifetime_timer_ref: reference
   }
 
   @system_allocated_port 0
@@ -55,7 +56,7 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:ok, state.relayed_address}, state}
     else
       {result, new_state} = request_allocation(state)
-      {:reply, result, new_state}
+      {:reply, result, update_lifetime_timer(new_state)}
     end
   end
 
@@ -64,6 +65,13 @@ defmodule Jerboa.Client.Worker do
     |> Protocol.bind_ind()
     |> send_ind()
     {:noreply, state}
+  end
+
+  def handle_info(:allocation_expired, state) do
+    new_state = %{state | lifetime_timer_ref: nil,
+                          relayed_address: nil,
+                          lifetime: nil}
+    {:noreply, new_state}
   end
 
   def terminate(_, state) do
@@ -108,6 +116,21 @@ defmodule Jerboa.Client.Worker do
         request_allocation(new_state)
       _ ->
         {result, new_state}
+    end
+  end
+
+  @spec update_lifetime_timer(state) :: Worker.state
+  defp update_lifetime_timer(state) do
+    timer_ref = state.lifetime_timer_ref
+    lifetime = state.lifetime
+    if timer_ref do
+      Process.cancel_timer timer_ref
+    end
+    if lifetime do
+      new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
+      %{state | lifetime_timer_ref: new_ref}
+    else
+      state
     end
   end
 end
