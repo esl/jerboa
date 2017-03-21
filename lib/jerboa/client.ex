@@ -32,7 +32,9 @@ defmodule Jerboa.Client do
   @type address :: {ip, port_no}
   @type start_opts :: [start_opt]
   @type start_opt :: {:server, address}
-  @type error :: :bad_response | Jerboa.Format.Body.Attribute.ErrorCode.name
+  @type error :: :bad_response
+               | :no_allocation
+               | Jerboa.Format.Body.Attribute.ErrorCode.name
 
   alias Jerboa.Client
 
@@ -80,6 +82,14 @@ defmodule Jerboa.Client do
   @spec allocate(t) :: {:ok, address} | {:error, error}
   def allocate(client) do
     GenServer.call(client, :allocate)
+  end
+
+  @doc """
+  Tries to refresh the allocation on the server
+  """
+  @spec refresh(t) :: :ok | {:error, error}
+  def refresh(client) do
+    GenServer.call(client, :refresh)
   end
 
   @doc """

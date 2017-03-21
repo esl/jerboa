@@ -56,7 +56,25 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:ok, state.relayed_address}, state}
     else
       {result, new_state} = request_allocation(state)
-      {:reply, result, update_lifetime_timer(new_state)}
+      case result do
+        {:ok, _} ->
+          {:reply, result, update_lifetime_timer(new_state)}
+        _ ->
+          {:reply, result, new_state}
+      end
+    end
+  end
+  def handle_call(:refresh, _, state) do
+    unless state.relayed_address do
+      {:reply, {:error, :no_allocation}, state}
+    else
+      {result, new_state} = request_refresh(state)
+      case result do
+        :ok ->
+          {:reply, result, update_lifetime_timer(new_state)}
+        _ ->
+          {:reply, result, new_state}
+      end
     end
   end
 
@@ -119,7 +137,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec update_lifetime_timer(state) :: Worker.state
+  @spec update_lifetime_timer(state) :: state
   defp update_lifetime_timer(state) do
     timer_ref = state.lifetime_timer_ref
     lifetime = state.lifetime
@@ -131,6 +149,21 @@ defmodule Jerboa.Client.Worker do
       %{state | lifetime_timer_ref: new_ref}
     else
       state
+    end
+  end
+
+  @spec request_refresh(state) :: {result :: term, state}
+  defp request_refresh(state) do
+    {result, new_state} =
+      state
+      |> Protocol.refresh_req()
+      |> send_req()
+      |> Protocol.eval_refresh_resp()
+    case result do
+      :retry ->
+        request_refresh(new_state)
+      _ ->
+        {result, new_state}
     end
   end
 end

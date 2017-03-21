@@ -66,10 +66,30 @@ defmodule Jerboa.Client.Protocol do
       {:error, reason} ->
         {{:error, reason}, empty_transaction(state)}
       {:retry, new_state} ->
-        {:retry, new_state}
+        {:retry, empty_transaction(new_state)}
     end
   end
 
+  @spec refresh_req(Worker.state) :: Worker.state
+  def refresh_req(state) do
+    params = refresh_params(state)
+    encode_request(params, state)
+  end
+
+  @spec eval_refresh_resp(Worker.state)
+    :: {:ok, Worker.state}
+     | {{:error, Client.error}, Worker.state}
+     | {:retry, Worker.state}
+  def eval_refresh_resp(state) do
+    case handle_refresh_resp(state) do
+      {:ok, new_state} ->
+        {:ok, empty_transaction(new_state)}
+      {:error, reason} ->
+        {{:error, reason}, empty_transaction(state)}
+      {:retry, new_state} ->
+        {:retry, empty_transaction(new_state)}
+    end
+  end
   ## Internal functions
 
   @spec bind(Worker.state, :request | :indication) :: Worker.state
@@ -189,11 +209,57 @@ defmodule Jerboa.Client.Protocol do
   end
 
   @spec validate_transaction_id(Params.t, Worker.state) :: :ok | :error
-  def validate_transaction_id(params, state) do
+  defp validate_transaction_id(params, state) do
     if params.identifier == state.transaction.id do
       :ok
     else
       :error
+    end
+  end
+
+  @spec refresh_params(Worker.state) :: Params.t
+  defp refresh_params(state) do
+    Params.new()
+    |> Params.put_class(:request)
+    |> Params.put_method(:refresh)
+    |> Params.put_attr(%Username{value: state.username})
+    |> Params.put_attr(%Realm{value: state.realm})
+    |> Params.put_attr(%Nonce{value: state.nonce})
+  end
+
+  require Logger
+
+  @spec handle_refresh_resp(Worker.state)
+    :: {:ok, Worker.state} | {:error, Client.error} | {:retry, Worker.state}
+  defp handle_refresh_resp(state) do
+    params = decode_response(state)
+    with :ok <- validate_transaction_id(params, state),
+         :refresh <- Params.get_method(params),
+         :success <- Params.get_class(params),
+         %{duration: lifetime} <- Params.get_attr(params, Lifetime) do
+      new_state = %{state | lifetime: lifetime}
+      {:ok, new_state}
+    else
+      :failure ->
+           handle_refresh_failure(state, params)
+      _ ->
+        {:error, :bad_response}
+    end
+  end
+
+  @spec handle_refresh_failure(Worker.state, resp :: Params.t)
+    :: {:retry, Worker.state} | {:error, Client.error}
+  defp handle_refresh_failure(state, params) do
+    nonce_attr = Params.get_attr(params, Nonce)
+    error = Params.get_attr(params, ErrorCode)
+       cond do
+      is_nil error ->
+        {:error, :bad_response}
+      error.name == :stale_nonce && nonce_attr ->
+        new_state = %{state | nonce: nonce_attr.value}
+        {:retry, new_state}
+      true ->
+        {:error, error.name}
     end
   end
 end
