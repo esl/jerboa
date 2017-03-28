@@ -32,6 +32,8 @@ defmodule Jerboa.Client do
   @type address :: {ip, port_no}
   @type start_opts :: [start_opt]
   @type start_opt :: {:server, address}
+                   | {:username, String.t}
+                   | {:secret, String.t}
   @type error :: :bad_response
                | :no_allocation
                | Jerboa.Format.Body.Attribute.ErrorCode.name
@@ -41,7 +43,8 @@ defmodule Jerboa.Client do
   @doc """
   Starts STUN client process
 
-      iex> Jerboa.Client.start server: {{192, 168, 1, 20}, 3478}
+      iex> opts = [server: {{192, 168, 1, 20}, 3478}, username: "user", secret: "abcd"]
+      iex> Jerboa.Client.start(opts)
       {:ok, #PID<...>}
 
   ### Options
