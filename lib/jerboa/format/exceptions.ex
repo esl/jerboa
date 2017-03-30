@@ -520,3 +520,16 @@ defmodule Jerboa.Format.MessageIntegrity.VerificationError do
     %__MODULE__{message: "MESSAGE-INTEGRITY found in message is invalid"}
   end
 end
+
+defmodule Jerboa.Format.DontFragment.ValuePresentError do
+  @moduledoc """
+  Error indicating that DONT-FRAGMENT found in STUN message
+  has some value associated with it
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "DONT-FRAGMENT attribute has value associated with it"}
+  end
+end
