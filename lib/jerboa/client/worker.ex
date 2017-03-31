@@ -12,6 +12,8 @@ defmodule Jerboa.Client.Worker do
              :realm, :nonce, :relayed_address, :lifetime, :lifetime_timer_ref,
              transaction: %Transaction{}]
 
+  @default_retries 1
+
   @type socket :: UDP.socket
   @type state :: %__MODULE__{
     server: Client.address,
@@ -55,7 +57,7 @@ defmodule Jerboa.Client.Worker do
     if state.relayed_address do
       {:reply, {:ok, state.relayed_address}, state}
     else
-      {result, new_state} = request_allocation(state)
+      {result, new_state} = request_allocation(state, @default_retries)
       case result do
         {:ok, _} ->
           {:reply, result, update_lifetime_timer(new_state)}
@@ -68,7 +70,7 @@ defmodule Jerboa.Client.Worker do
     unless state.relayed_address do
       {:reply, {:error, :no_allocation}, state}
     else
-      {result, new_state} = request_refresh(state)
+      {result, new_state} = request_refresh(state, @default_retries)
       case result do
         :ok ->
           {:reply, result, update_lifetime_timer(new_state)}
@@ -118,18 +120,19 @@ defmodule Jerboa.Client.Worker do
     :ok = UDP.send(socket, address, port, msg)
   end
 
-  @spec request_allocation(state) :: {result :: term, state}
-  defp request_allocation(state) do
+  @spec request_allocation(state, retries_left :: pos_integer)
+    :: {result :: term, state}
+  defp request_allocation(state, retries_left) do
     {result, new_state} =
       state
       |> Protocol.allocate_req()
       |> send_req()
       |> Protocol.eval_allocate_resp()
-    case result do
-      :retry ->
-        request_allocation(new_state)
-      _ ->
-        {result, new_state}
+    with n when n > 0 <- retries_left,
+         :retry <- result do
+      request_allocation(new_state, n - 1)
+    else
+      _ -> {result, new_state}
     end
   end
 
@@ -148,18 +151,19 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec request_refresh(state) :: {result :: term, state}
-  defp request_refresh(state) do
+  @spec request_refresh(state, retries_left :: pos_integer)
+    :: {result :: term, state}
+  defp request_refresh(state, retries_left) do
     {result, new_state} =
       state
       |> Protocol.refresh_req()
       |> send_req()
       |> Protocol.eval_refresh_resp()
-    case result do
-      :retry ->
-        request_refresh(new_state)
-      _ ->
-        {result, new_state}
+    with n when n > 0 <- retries_left,
+         :retry <- result do
+      request_refresh(new_state, n - 1)
+    else
+      _ -> {result, new_state}
     end
   end
 end
