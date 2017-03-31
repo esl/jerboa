@@ -2,7 +2,7 @@ defmodule Jerboa.Client.Protocol do
   @moduledoc false
 
   ## Pure functions which construct requests or indications
-  ## and processes responses
+  ## and process responses
 
   alias Jerboa.Client
   alias Jerboa.Client.Worker
@@ -45,9 +45,9 @@ defmodule Jerboa.Client.Protocol do
       {:ok, new_state} ->
         {{:ok, new_state.mapped_address}, empty_transaction(new_state)}
       error ->
-      {error, state}
+        {error, state}
     end
-   end
+  end
 
   @spec allocate_req(Worker.state) :: Worker.state
   def allocate_req(state) do
@@ -227,8 +227,6 @@ defmodule Jerboa.Client.Protocol do
     |> Params.put_attr(%Nonce{value: state.nonce})
   end
 
-  require Logger
-
   @spec handle_refresh_resp(Worker.state)
     :: {:ok, Worker.state} | {:error, Client.error} | {:retry, Worker.state}
   defp handle_refresh_resp(state) do
@@ -252,7 +250,7 @@ defmodule Jerboa.Client.Protocol do
   defp handle_refresh_failure(state, params) do
     nonce_attr = Params.get_attr(params, Nonce)
     error = Params.get_attr(params, ErrorCode)
-       cond do
+    cond do
       is_nil error ->
         {:error, :bad_response}
       error.name == :stale_nonce && nonce_attr ->
