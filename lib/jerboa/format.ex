@@ -78,13 +78,22 @@ defmodule Jerboa.Format do
   in the decoded message attributes or in the options list if there are
   no such attributes.
 
-  However, note that we can't be sure what comes from the other end of the wire,
-  so we don't know if those attributes will be there (STUN/TURN RFCs define such
-  behaviour, e.g. TURN server never includes USERNAME attribute in responses).
+  Verification stage of decoding will never cause a decoding failure.
+  To indicate what happened during verification, there are two fields
+  in `Jerboa.Params` struct: `:signed?` and `:verified?`.
 
-  Decoding will fail if necessary values (username, realm and secret) can't
-  be found, so it's better to always pass these values as options just to be
-  sure.
+  `:signed?` is set to true **only** if the message being decoded has
+  a MESSAGE-INTEGRITY attribute included. `:verified?` can never
+  be true if `:signed?` is false (because there is simply nothing to
+  verify).
+
+  `:verified?` is only set to true when:
+  * the message is `:signed?`
+  * username, realm in the message attributes, or were passed as options
+    and secret was passed as option
+  * MESSAGE-INTEGRITY was successfully verified using algorithm described in RFC
+
+  Otherwise, it's set to false.
 
   ## Available options
 

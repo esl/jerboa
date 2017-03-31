@@ -5,9 +5,7 @@ defmodule Jerboa.Format.MessageIntegrity do
   alias Jerboa.Params
   alias Jerboa.Format.Body.Attribute.Username
   alias Jerboa.Format.Body.Attribute.Realm
-  alias Jerboa.Format.MessageIntegrity.{FormatError, UsernameMissingError,
-                                        RealmMissingError, SecretMissingError,
-                                        VerificationError}
+  alias Jerboa.Format.MessageIntegrity.FormatError
 
   @type_code 0x0008
   @hash_length 20
@@ -18,7 +16,10 @@ defmodule Jerboa.Format.MessageIntegrity do
   @spec extract(Meta.t, binary) :: {:ok, Meta.t} | {:error, struct}
   def extract(meta, <<@type_code::16, @hash_length::16,
     hash::@hash_length-binary, _::binary>>) do
-    {:ok, %{meta | message_integrity: hash}}
+    new_meta =
+      %{meta | message_integrity: hash,
+               params: %{meta.params | signed?: true}}
+    {:ok, new_meta}
   end
   def extract(_, _) do
     {:error, FormatError.exception()}
@@ -26,60 +27,67 @@ defmodule Jerboa.Format.MessageIntegrity do
 
   @spec apply(Meta.t) :: Meta.t
   def apply(meta) do
-    case assert_required_options(meta) do
-      :ok -> apply_message_integrity(meta)
-      _   -> meta
-    end
-  end
-
-  @spec verify(Meta.t) :: {:ok, Meta.t} | {:error, struct}
-  def verify(meta) do
-    with true <- has_message_integrity?(meta),
-         :ok <- assert_required_options(meta),
-         :ok <- verify_message_integrity(meta) do
-      {:ok, meta}
+    if has_required_options?(meta) do
+      apply_message_integrity(meta)
     else
-      false -> {:ok, meta}
-      {:error, _} = error -> error
+      meta
     end
   end
 
-  @spec assert_required_options(Meta.t) :: :ok | :error
-  defp assert_required_options(meta) do
-    with {:ok, _} <- get_username(meta),
-         {:ok, _} <- get_secret(meta),
+  @spec verify(Meta.t) :: {:ok, Meta.t}
+  def verify(meta) do
+    verified? =
+      with true <- signed?(meta),
+           true <- has_required_options?(meta),
+            :ok <- verify_message_integrity(meta) do
+        true
+      else
+        _ -> false
+      end
+    {:ok, %{meta | params: %{meta.params | verified?: verified?}}}
+  end
+
+  @spec signed?(Meta.t) :: boolean
+  defp signed?(meta), do: meta.params.signed?
+
+  @spec has_required_options?(Meta.t) :: boolean
+  defp has_required_options?(meta) do
+    with {:ok, _} <- get_secret(meta),
+         {:ok, _} <- get_username(meta),
          {:ok, _} <- get_realm(meta) do
-      :ok
+      true
+    else
+      _ -> false
     end
   end
 
-  @spec get_username(Meta.t) :: {:ok, String.t} | {:error, struct}
+  @spec get_username(Meta.t) :: {:ok, String.t} | :error
   defp get_username(meta) do
     from_attr = Params.get_attr(meta.params, Username)
     from_opts = meta.options[:username]
     cond do
       from_attr -> {:ok, from_attr.value}
       from_opts -> {:ok, from_opts}
-      true      -> {:error, UsernameMissingError.exception()}
+      true      -> :error
     end
   end
 
-  @spec get_secret(Meta.t) :: {:ok, String.t} | {:error, struct}
+  @spec get_secret(Meta.t) :: {:ok, String.t} | :error
   defp get_secret(meta) do
     case meta.options[:secret] do
-      nil -> {:error, SecretMissingError.exception()}
+      nil -> :error
       secret -> {:ok, secret}
     end
   end
 
-  @spec get_realm(Meta.t) :: {:ok, String.t} | {:error, struct}
+  @spec get_realm(Meta.t) :: {:ok, String.t} | :error
   defp get_realm(meta) do
     from_attr = Params.get_attr(meta.params, Realm)
     from_opts = meta.options[:realm]
     cond do
       from_attr -> {:ok, from_attr.value}
       from_opts -> {:ok, from_opts}
-      true      -> {:error, RealmMissingError.exception()}
+      true      -> :error
     end
   end
 
@@ -92,12 +100,7 @@ defmodule Jerboa.Format.MessageIntegrity do
              header: modify_header_length(meta.header)}
   end
 
-  @spec has_message_integrity?(Meta.t) :: boolean
-  defp has_message_integrity?(meta) do
-    byte_size(meta.message_integrity) > 0
-  end
-
-  @spec verify_message_integrity(Meta.t) :: :ok | {:error, struct}
+  @spec verify_message_integrity(Meta.t) :: :ok | :error
   defp verify_message_integrity(meta) do
     key = calculate_hash_key(meta)
     data = meta |> amend_header_and_body() |> get_hash_subject()
@@ -105,7 +108,7 @@ defmodule Jerboa.Format.MessageIntegrity do
     if hash == meta.message_integrity do
       :ok
     else
-      {:error, VerificationError.exception()}
+      :error
     end
   end
 
@@ -117,7 +120,7 @@ defmodule Jerboa.Format.MessageIntegrity do
     :crypto.hash :md5, [username, ":", realm, ":", secret]
   end
 
-  @spec calculate_hash(binary, binary) :: binary
+  @spec calculate_hash(binary, iodata) :: binary
   def calculate_hash(key, data) do
     :crypto.hmac(:sha, key, data)
   end

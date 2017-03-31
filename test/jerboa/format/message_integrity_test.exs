@@ -8,10 +8,6 @@ defmodule Jerboa.Format.MessageIntegrityTest do
   alias Jerboa.Format.MessageIntegrity
   alias Jerboa.Format.Meta
   alias Jerboa.Format.Body.Attribute.{Nonce, Realm, Username}
-  alias Jerboa.Format.MessageIntegrity.RealmMissingError
-  alias Jerboa.Format.MessageIntegrity.UsernameMissingError
-  alias Jerboa.Format.MessageIntegrity.SecretMissingError
-  alias Jerboa.Format.MessageIntegrity.VerificationError
 
   @mi_attr_length 24
 
@@ -77,35 +73,42 @@ defmodule Jerboa.Format.MessageIntegrityTest do
   end
 
   describe "verify/1" do
-    test "changes nothing when MI is empty" do
-      empty_mi = <<>>
-      meta = %Meta{message_integrity: empty_mi}
+    test "sets :verified? to false if message is not signed" do
+      options = [secret: "secret", username: "alice", realm: "wonderland"]
+      meta = %Meta{options: options} |> set_signed(false)
 
-      assert {:ok, meta} == MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
 
-    test "fails when secret is not given" do
+    test "sets :verified? to false if secret is not given" do
       options = [username: "alice", realm: "wonderland"]
-      meta = %Meta{options: options, message_integrity: "abcd"}
+      meta =
+        %Meta{options: options, message_integrity: "abcd"}
+        |> set_signed()
 
-      assert {:error, %SecretMissingError{}} = MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
 
-    test "fails when username is not given" do
+    test "sets :verified? to false if username is not given" do
       options = [secret: "secret", realm: "wonderland"]
-      meta = %Meta{options: options, message_integrity: "abcd"}
+      meta = %Meta{options: options, message_integrity: "abcd"} |> set_signed()
 
-      assert {:error, %UsernameMissingError{}} = MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
 
-    test "fails when realm is not given" do
+    test "sets :verified? to false if realm is not given" do
       options = [secret: "secret", username: "alice"]
-      meta = %Meta{options: options, message_integrity: "abcd"}
+      meta = %Meta{options: options, message_integrity: "abcd"} |> set_signed()
 
-      assert {:error, %RealmMissingError{}} = MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
 
-    test "fails if extracted MI is not valid (values passed as options)" do
+    test "sets :verified? to false if extracted MI is not valid
+      (values passed as options)" do
       params =
         Params.new()
         |> Params.put_class(:request)
@@ -116,11 +119,14 @@ defmodule Jerboa.Format.MessageIntegrityTest do
         %Meta{params: params, options: options, message_integrity: "abcd"}
         |> Body.encode()
         |> Header.encode()
+        |> set_signed()
 
-      assert {:error, %VerificationError{}} = MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
 
-    test "fails if extracted MI is not valid (values passed as attibutes)" do
+    test "set :verified? to false if extracted MI is not valid
+      (values passed as attibutes)" do
       params =
         Params.new()
         |> Params.put_class(:request)
@@ -133,8 +139,14 @@ defmodule Jerboa.Format.MessageIntegrityTest do
         %Meta{params: params, options: options, message_integrity: "abcd"}
         |> Body.encode()
         |> Header.encode()
+        |> set_signed()
 
-      assert {:error, %VerificationError{}} = MessageIntegrity.verify(meta)
+      assert {:ok, new_meta} = MessageIntegrity.verify(meta)
+      refute new_meta.params.verified?
     end
+  end
+
+  defp set_signed(meta, val \\ true) do
+    %{meta | params: %{meta.params | signed?: val}}
   end
 end
