@@ -6,7 +6,8 @@ defmodule Jerboa.Params do
   alias Jerboa.Format.Header.Type.{Class, Method}
   alias Jerboa.Format.Body.Attribute
 
-  defstruct [:class, :method, :identifier, attributes: []]
+  defstruct [:class, :method, :identifier, attributes: [],
+             signed?: false, verified?: false]
 
   @typedoc """
   The main data structure representing STUN message parameters
@@ -19,12 +20,20 @@ defmodule Jerboa.Params do
   * `identifier` is a unique transaction identifier
   * `attributes` is a list of STUN (or TURN) attributes as described in their
   respective RFCs
+  * `signed?` indicates wheter STUN message was signed with MESSAGE-INTEGRITY
+    attribute - it isn't important when encoding a message
+  * `verified?` - indicates wheter MESSAGE-INTEGRIY from STUN message was
+    successfully verified. Same as `signed?`, it's only relevant when decoding
+    messages. Note that messages which are `verified?` are also `signed?`, but not
+    the other way around.
   """
   @type t :: %__MODULE__{
     class: Class.t,
     method: Method.t,
     identifier: binary,
     attributes: [Attribute.t],
+    signed?: boolean,
+    verified?: boolean
   }
 
   @doc """

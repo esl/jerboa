@@ -8,7 +8,6 @@ defmodule Jerboa.FormatTest do
   alias Format.{HeaderLengthError, BodyLengthError}
   alias Jerboa.Format.Header.MagicCookie
   alias Jerboa.Format.Body.Attribute.{Username, Realm, Nonce}
-  alias Jerboa.Format.MessageIntegrity.VerificationError
   alias Jerboa.Format.Meta
   alias Jerboa.Format.Body.Attribute
 
@@ -120,10 +119,13 @@ defmodule Jerboa.FormatTest do
       |> Params.put_attr(%Realm{value: realm})
       |> Format.encode(secret: secret)
 
-    assert {:ok, _} = Format.decode(bin, secret: secret)
+    assert {:ok, params} = Format.decode(bin, secret: secret)
+    assert params.signed?
+    assert params.verified?
   end
 
-  test "decode/2 fails given different secret than encode/2" do
+  test "decode/2 set :verified? to false given different secret
+    than encode/2" do
     username = "alice"
     realm = "wonderland"
     secret = "secret"
@@ -137,11 +139,13 @@ defmodule Jerboa.FormatTest do
       |> Params.put_attr(%Realm{value: realm})
       |> Format.encode(secret: secret)
 
-    assert {:error, %VerificationError{}} =
-      Format.decode(bin, secret: other_secret)
+    assert {:ok, params} = Format.decode(bin, secret: other_secret)
+    assert params.signed?
+    refute params.verified?
   end
 
-  test "decode/2 fails given different username than encode/2" do
+  test "decode/2 sets :verified? to false given different username
+    than encode/2" do
     username = "alice"
     other_username = "harry"
     realm = "wonderland"
@@ -154,11 +158,14 @@ defmodule Jerboa.FormatTest do
       |> Params.put_attr(%Realm{value: realm})
       |> Format.encode(secret: secret, username: username)
 
-    assert {:error, %VerificationError{}} =
+    assert {:ok, params} =
       Format.decode(bin, secret: secret, username: other_username)
+    assert params.signed?
+    refute params.verified?
   end
 
-  test "decode/2 fails given different realm than encode/2" do
+  test "decode/2 sets :verified? to false given different realm
+    than encode/2" do
     username = "alice"
     realm = "wonderland"
     other_realm = "hogwarts"
@@ -171,8 +178,10 @@ defmodule Jerboa.FormatTest do
       |> Params.put_attr(%Username{value: username})
       |> Format.encode(secret: secret, realm: realm)
 
-    assert {:error, %VerificationError{}} =
+    assert {:ok, params} =
       Format.decode(bin, secret: secret, realm: other_realm)
+    assert params.signed?
+    refute params.verified?
   end
 
   test "attributes after MI are ignored" do
@@ -195,5 +204,17 @@ defmodule Jerboa.FormatTest do
     assert %Username{} = Params.get_attr(params, Username)
     assert %Realm{} = Params.get_attr(params, Realm)
     assert nil == Params.get_attr(params, Nonce)
+  end
+
+  test "sets :signed? and :verified? to false if there is no MI attribute" do
+    bin =
+      Params.new()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Format.encode()
+
+    assert {:ok, params} = Format.decode(bin)
+    refute params.signed?
+    refute params.verified?
   end
 end
