@@ -67,7 +67,7 @@ defmodule Jerboa.Client do
   """
   @spec bind(t) :: {:ok, address} | {:error, :bad_response} | no_return
   def bind(client) do
-    GenServer.call(client, :bind, 2 * timeout())
+    GenServer.call(client, :bind)
   end
 
   @doc """
@@ -102,10 +102,5 @@ defmodule Jerboa.Client do
     when error: :not_found | :simple_one_for_one
   def stop(client) do
     Supervisor.terminate_child(Client.Supervisor, client)
-  end
-
-  @spec timeout :: non_neg_integer
-  defp timeout do
-    Keyword.fetch!(Application.fetch_env!(:jerboa, :client), :timeout)
   end
 end

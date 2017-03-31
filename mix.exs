@@ -21,7 +21,6 @@ defmodule Jerboa.Mixfile do
 
   def application do
     [mod: {Jerboa.Client.Application, []},
-     env: [client: [timeout: 5 * 1000]],
      extra_applications: [:logger]]
   end
 

@@ -107,7 +107,7 @@ defmodule Jerboa.Client.Worker do
     socket = socket(state)
     {address, port} = server(state)
     :ok = UDP.send(socket, address, port, req)
-    {:ok, {^address, ^port, response}} = UDP.recv(socket, 0, timeout())
+    {:ok, {^address, ^port, response}} = UDP.recv(socket, 0)
     %{state | transaction: %{transaction | resp: response}}
   end
 
@@ -116,10 +116,6 @@ defmodule Jerboa.Client.Worker do
     socket = socket(state)
     {address, port} = server(state)
     :ok = UDP.send(socket, address, port, msg)
-  end
-
-  defp timeout do
-    Keyword.fetch!(Application.fetch_env!(:jerboa, :client), :timeout)
   end
 
   @spec request_allocation(state) :: {result :: term, state}
