@@ -79,10 +79,10 @@ defmodule Jerboa.Format do
   no such attributes.
 
   Verification stage of decoding will never cause a decoding failure.
-  To indicate what happened during verification, there are to fields
+  To indicate what happened during verification, there are two fields
   in `Jerboa.Params` struct: `:signed?` and `:verified?`.
 
-  `:signed?` is set to true **only** if message being decoded has
+  `:signed?` is set to true **only** if the message being decoded has
   a MESSAGE-INTEGRITY attribute included. `:verified?` can never
   be true if `:signed?` is false (because there is simply nothing to
   verify).
