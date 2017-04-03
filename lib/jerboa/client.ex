@@ -9,9 +9,7 @@ defmodule Jerboa.Client do
 
   (see `start/1` for configuration options)
 
-  Currently the only implemented STUN method is [Binding](), which allows a client to
-  query the server for its external IP address and port. To achieve that, this module
-  provides `bind/1` and `persist/1` functions.
+  ## Requesting server reflexive address
 
   The `bind/1` issues a Binding request to a server and returns reflexive IP address and port.
   If returned message is not a valid STUN message or it doesn't include XOR Mapped Address
@@ -24,6 +22,23 @@ defmodule Jerboa.Client do
   any response, but is an attempt to refresh NAT bindings in routers on the path to a server.
   Note that this is only an attempt, there is no guarantee that some router on the path
   won't rebind client's inside address and port.
+
+  ## Creating allocations
+
+  Allocation is a logical communication path between one client and multiple peers.
+  In practice a socket is created on the server, which peers can send data to,
+  and the server will forward this data to the client. Client can send data to
+  the server which will forward it to one or more peers.
+
+  Refer to [TURN RFC](https://trac.tools.ietf.org/html/rfc5766#section-2)
+  for a more detailed description.
+
+  `allocate/1` is used to request an allocation on the server. On success it returns
+  an `:ok` tuple, which contains allocated IP address and port number. Jerboa won't
+  try to request an allocation if it knows that the client already has one.
+
+  Note that allocations have an expiration time (RFC recommends 10 minutes), To refresh
+  an existing allocation one can use `refresh/1`.
 
   ## Logging
 
