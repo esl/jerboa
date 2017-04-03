@@ -5,7 +5,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
 
   alias Jerboa.Format.Body.Attribute
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
-                                      Username, Realm, ErrorCode,
+                                      Username, Realm, ErrorCode, EvenPort,
                                       XORPeerAddress, XORRelayedAddress,
                                       RequestedTransport, DontFragment}
   alias Jerboa.Params
@@ -158,6 +158,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x001A
       assert length_correct?(bin, total(value: 0))
     end
+
+    test "EVEN-PORT as a TLV"do
+      attr = %EvenPort{}
+
+      {_, bin} = Attribute.encode %Meta{}, attr
+
+      assert type(bin) == 0x0018
+      assert length_correct?(bin, total(value: 1))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -258,6 +267,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       {_, bin} = Attribute.encode(meta, attr)
 
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x001A, value(bin))
+    end
+
+    test "EVEN-PORT" do
+      attr = %EvenPort{}
+      meta = %Meta{}
+
+      {_, bin} = Attribute.encode(meta, attr)
+
+      assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0018, value(bin))
     end
   end
 end
