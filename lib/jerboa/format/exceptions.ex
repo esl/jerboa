@@ -479,3 +479,19 @@ defmodule Jerboa.Format.DontFragment.ValuePresentError do
     %__MODULE__{message: "DONT-FRAGMENT attribute has value associated with it"}
   end
 end
+
+defmodule Jerboa.Format.EvenPort.FormatError do
+  @moduledoc """
+  Error indicating that EVEN-PORT attributes found in STUN message
+  has invalid format
+
+  TURN RFC requires that EVEN-PORT attribute is 1 byte long,
+  where 7 last bits are always set to 0.
+  """
+
+  defexception [:message]
+
+  def exception(_opts \\ []) do
+    %__MODULE__{message: "EVEN-PORT attribute has invalid format"}
+  end
+end
