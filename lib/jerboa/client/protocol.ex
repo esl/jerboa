@@ -14,6 +14,8 @@ defmodule Jerboa.Client.Protocol do
   alias Jerboa.Format.Body.Attribute.{RequestedTransport, Username, Realm,
                                       Nonce, Lifetime, ErrorCode}
 
+  require Logger
+
   ## API
 
   @spec init_state(Client.start_opts, Worker.socket) :: Worker.state
@@ -28,11 +30,13 @@ defmodule Jerboa.Client.Protocol do
 
   @spec bind_req(Worker.state) :: Worker.state
   def bind_req(state) do
+    Logger.debug fn -> "Sending binding request to the server" end
     bind(state, :request)
   end
 
   @spec bind_ind(Worker.state) :: Worker.state
   def bind_ind(state) do
+    Logger.debug fn -> "Sending binding indication to the server" end
     bind(state, :indication)
   end
 
@@ -43,14 +47,23 @@ defmodule Jerboa.Client.Protocol do
   def eval_bind_resp(state) do
     case validate_bind_resp(state) do
       {:ok, new_state} ->
-        {{:ok, new_state.mapped_address}, empty_transaction(new_state)}
-      error ->
+        mapped_address = new_state.mapped_address
+        Logger.debug fn ->
+          "Received success binding response, server reflexive address: " <>
+            Client.format_address(mapped_address)
+        end
+        {{:ok, mapped_address}, empty_transaction(new_state)}
+      {:error, reason} = error ->
+        Logger.debug fn ->
+          "Error when receiving binding response, reason: #{inspect reason}"
+        end
         {error, state}
     end
   end
 
   @spec allocate_req(Worker.state) :: Worker.state
   def allocate_req(state) do
+    Logger.debug fn -> "Sending allocate request to the server" end
     params = allocate_params(state)
     encode_request(params, state)
   end
@@ -62,8 +75,16 @@ defmodule Jerboa.Client.Protocol do
   def eval_allocate_resp(state) do
     case handle_allocate_resp(state) do
       {:ok, new_state} ->
-        {{:ok, new_state.relayed_address}, empty_transaction(new_state)}
+        relayed_address = new_state.relayed_address
+        Logger.debug fn ->
+          "Received success allocate reponse, relayed address: " <>
+            Client.format_address(relayed_address)
+        end
+        {{:ok, relayed_address}, empty_transaction(new_state)}
       {:error, reason} ->
+        Logger.debug fn ->
+          "Error when receiving allocate response, reason: #{inspect reason}"
+        end
         {{:error, reason}, empty_transaction(state)}
       {:retry, new_state} ->
         {:retry, empty_transaction(new_state)}
@@ -72,6 +93,7 @@ defmodule Jerboa.Client.Protocol do
 
   @spec refresh_req(Worker.state) :: Worker.state
   def refresh_req(state) do
+    Logger.debug fn -> "Sending refresh request to the server" end
     params = refresh_params(state)
     encode_request(params, state)
   end
@@ -83,13 +105,21 @@ defmodule Jerboa.Client.Protocol do
   def eval_refresh_resp(state) do
     case handle_refresh_resp(state) do
       {:ok, new_state} ->
+        Logger.debug fn ->
+          "Received success refresh reponse, new lifetime: " <>
+            "#{new_state.lifetime}"
+        end
         {:ok, empty_transaction(new_state)}
       {:error, reason} ->
+        Logger.debug fn ->
+          "Error when receiving refresh response, reason: #{inspect reason}"
+        end
         {{:error, reason}, empty_transaction(state)}
       {:retry, new_state} ->
         {:retry, empty_transaction(new_state)}
     end
-  end
+     end
+
   ## Internal functions
 
   @spec bind(Worker.state, :request | :indication) :: Worker.state

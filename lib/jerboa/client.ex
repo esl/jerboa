@@ -24,6 +24,16 @@ defmodule Jerboa.Client do
   any response, but is an attempt to refresh NAT bindings in routers on the path to a server.
   Note that this is only an attempt, there is no guarantee that some router on the path
   won't rebind client's inside address and port.
+
+  ## Logging
+
+  Client logs progress messages with `:debug` level, so Elixir's Logger needs to
+  be configured first to see them. It is recommended to allow Jerboa logging metadata,
+  i.e. `:jerboa_client` and `:jerboa_server`:
+
+      config :logger,
+        level: :debug,
+        metadata: [:jerboa_client, :jerboa_server]
   """
 
   @type t :: pid
@@ -102,5 +112,11 @@ defmodule Jerboa.Client do
     when error: :not_found | :simple_one_for_one
   def stop(client) do
     Supervisor.terminate_child(Client.Supervisor, client)
+    end
+
+  @doc false
+  @spec format_address(address) :: String.t
+  def format_address({ip, port}) do
+    "#{:inet.ntoa(ip)}:#{port}"
   end
 end

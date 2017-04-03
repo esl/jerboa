@@ -8,6 +8,8 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.Transaction
 
+  require Logger
+
   defstruct [:server, :socket, :mapped_address, :username, :secret,
              :realm, :nonce, :relayed_address, :lifetime, :lifetime_timer_ref,
              transaction: %Transaction{}]
@@ -42,6 +44,8 @@ defmodule Jerboa.Client.Worker do
     false = Process.flag(:trap_exit, true)
     {:ok, socket} = UDP.open(@system_allocated_port, [:binary, active: false])
     state = Protocol.init_state(opts, socket)
+    setup_logger_metadata(state)
+    Logger.debug fn -> "Initialized client" end
     {:ok, state}
   end
 
@@ -55,6 +59,9 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_call(:allocate, _, state) do
     if state.relayed_address do
+      Logger.debug fn ->
+        "Allocation already present on the server, allocate request blocked"
+      end
       {:reply, {:ok, state.relayed_address}, state}
     else
       {result, new_state} = request_allocation(state, @default_retries)
@@ -68,6 +75,9 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_call(:refresh, _, state) do
     unless state.relayed_address do
+      Logger.debug fn ->
+        "No allocation present on the server, refresh request blocked"
+      end
       {:reply, {:error, :no_allocation}, state}
     else
       {result, new_state} = request_refresh(state, @default_retries)
@@ -130,6 +140,7 @@ defmodule Jerboa.Client.Worker do
       |> Protocol.eval_allocate_resp()
     with n when n > 0 <- retries_left,
          :retry <- result do
+      Logger.debug fn -> "Received error allocate response, retrying.." end
       request_allocation(new_state, n - 1)
     else
       _ -> {result, new_state}
@@ -161,9 +172,18 @@ defmodule Jerboa.Client.Worker do
       |> Protocol.eval_refresh_resp()
     with n when n > 0 <- retries_left,
          :retry <- result do
+      Logger.debug fn -> "Received error refresh response, retrying.." end
       request_refresh(new_state, n - 1)
     else
       _ -> {result, new_state}
     end
+  end
+
+  @spec setup_logger_metadata(state) :: any
+  defp setup_logger_metadata(%{socket: socket, server: server}) do
+    {:ok, port} = :inet.port(socket)
+    metadata = [jerboa_client: "#{inspect self()}:#{port}",
+                jerboa_server: Client.format_address(server)]
+    Logger.metadata(metadata)
   end
 end
