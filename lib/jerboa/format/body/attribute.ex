@@ -28,9 +28,10 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, meta)
   end
 
-  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
-                ErrorCode, XORRelayedAddress, XORPeerAddress,
-                RequestedTransport, DontFragment]
+  @internal_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
+                   ErrorCode, XORRelayedAddress, XORPeerAddress,
+                   RequestedTransport, DontFragment]
+  @external_attrs Application.get_env(:jerboa, Attributes)
 
   @biggest_16 65_535
 
@@ -53,10 +54,15 @@ defmodule Jerboa.Format.Body.Attribute do
   @doc false
   @spec decode(Meta.t, type :: non_neg_integer, value :: binary)
     :: {:ok, Meta.t, t} | {:error, struct} | {:ignore, Meta.t}
-  for attr <- @known_attrs do
+  for attr <- @internal_attrs do
     type = Encoder.type_code(struct(attr))
     def decode(meta, unquote(type), value) do
       Decoder.decode(struct(unquote(attr)), value, meta)
+    end
+  end
+  for {type_code, attr_mod} <- @external_attrs do
+    def decode(meta, unquote(type_code), value) do
+      Decoder.decode(struct(unquote(attr_mod)), value, meta)
     end
   end
   def decode(_, type, _) when type in 0x0000..0x7FFF do
