@@ -7,7 +7,8 @@ defmodule Jerboa.Format.Body.AttributeTest do
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
                                       Username, Realm, ErrorCode, EvenPort,
                                       XORPeerAddress, XORRelayedAddress,
-                                      RequestedTransport, DontFragment}
+                                      RequestedTransport, DontFragment,
+                                      ReservationToken}
   alias Jerboa.Params
   alias Jerboa.Format.Meta
 
@@ -167,6 +168,15 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert type(bin) == 0x0018
       assert length_correct?(bin, total(value: 1))
     end
+
+    test "RESERVATION-TOKEN as a TLV" do
+      attr = %ReservationToken{value: <<0::64>>}
+
+      {_, bin} = Attribute.encode %Meta{}, attr
+
+      assert type(bin) == 0x0022
+      assert length_correct?(bin, total(value: 8))
+    end
   end
 
   describe "Attribute.decode/3 is opposite to encode/2 for" do
@@ -269,6 +279,7 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x001A, value(bin))
     end
 
+
     test "EVEN-PORT" do
       attr = %EvenPort{}
       meta = %Meta{}
@@ -276,6 +287,14 @@ defmodule Jerboa.Format.Body.AttributeTest do
       {_, bin} = Attribute.encode(meta, attr)
 
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0018, value(bin))
+    end
+
+    test "RESERVATION-TOKEN" do
+      attr = %ReservationToken{value: <<0::64>>}
+      meta = %Meta{}
+
+      {_, bin} = Attribute.encode(meta, attr)
+      assert {:ok, _, ^attr} = Attribute.decode(meta, 0x0022, value(bin))
     end
   end
 end
