@@ -495,3 +495,22 @@ defmodule Jerboa.Format.EvenPort.FormatError do
     %__MODULE__{message: "EVEN-PORT attribute has invalid format"}
   end
 end
+
+defmodule Jerboa.Format.ReservationToken.LengthError do
+  @moduledoc """
+  Error indication that RESERVATION-TOKEN attribute's value
+  has invalid (different than 8 bytes) length
+
+  Exception struct fields:
+  * `:length` - length of attribute's value found in STUN message (in bytes)
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    length = opts[:length]
+    %__MODULE__{length: length,
+                message: "RESERVATION-TOKEN attribute has value of invalid " <>
+                  "length. Expected 8 bytes, found #{length}"}
+  end
+end
