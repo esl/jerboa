@@ -22,10 +22,6 @@ defmodule Jerboa.Format.Body.Attribute.Lifetime do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Lifetime
-    @type_code 0x000D
-
-    @spec type_code(Lifetime.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(Lifetime.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, Lifetime.encode(attr)}

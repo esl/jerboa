@@ -21,10 +21,6 @@ defmodule Jerboa.Format.Body.Attribute.Username do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Username
-    @type_code 0x0006
-
-    @spec type_code(Username.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(Username.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, Username.encode(attr)}

@@ -6,5 +6,5 @@ defmodule Jerboa.Format.Body.Attribute.XORRelayedAddress do
 
   alias Jerboa.Format.Body.Attribute.XORAddress
 
-  use XORAddress, type_code: 0x0016
+  use XORAddress
 end

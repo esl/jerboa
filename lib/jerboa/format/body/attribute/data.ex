@@ -17,10 +17,6 @@ defmodule Jerboa.Format.Body.Attribute.Data do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Data
-    @type_code 0x0013
-
-    @spec type_code(Data.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(Data.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, Data.encode(attr)}

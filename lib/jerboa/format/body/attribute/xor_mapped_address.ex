@@ -6,5 +6,5 @@ defmodule Jerboa.Format.Body.Attribute.XORMappedAddress do
 
   alias Jerboa.Format.Body.Attribute.XORAddress
 
-  use XORAddress, type_code: 0x0020
+  use XORAddress
 end

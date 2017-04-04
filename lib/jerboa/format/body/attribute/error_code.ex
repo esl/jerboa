@@ -59,10 +59,6 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.ErrorCode
-    @type_code 0x0009
-
-    @spec type_code(ErrorCode.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(ErrorCode.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, ErrorCode.encode(attr)}

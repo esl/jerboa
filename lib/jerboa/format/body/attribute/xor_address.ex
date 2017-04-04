@@ -18,7 +18,7 @@ defmodule Jerboa.Format.Body.Attribute.XORAddress do
   @magic_cookie Jerboa.Format.Header.MagicCookie.value
   @most_significant_magic_16 @magic_cookie >>> 16
 
-  defmacro __using__(type_code: type_code) do
+  defmacro __using__(_opts) do
     quote do
       defstruct [:family, :address, :port]
 
@@ -29,8 +29,6 @@ defmodule Jerboa.Format.Body.Attribute.XORAddress do
       }
 
       defimpl Jerboa.Format.Body.Attribute.Encoder do
-        def type_code(_), do: unquote(type_code)
-
         def encode(attr, meta) do
           value =
             Jerboa.Format.Body.Attribute.XORAddress.encode(attr, meta.params)

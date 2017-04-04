@@ -13,9 +13,6 @@ defmodule Jerboa.Format.Body.Attribute do
   defprotocol Encoder do
     @moduledoc false
 
-    @spec type_code(t) :: integer
-    def type_code(attr)
-
     @spec encode(t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta)
   end
@@ -28,10 +25,15 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, meta)
   end
 
-  @internal_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
-                   ErrorCode, XORRelayedAddress, XORPeerAddress,
-                   RequestedTransport, DontFragment]
-  @external_attrs Application.get_env(:jerboa, Attributes)
+  @internal_attrs [{XORMappedAddress, 0x0020}, {Lifetime, 0x000D}, {Data, 0x0013},
+                   {Nonce, 0x0015}, {Username, 0x0006}, {Realm, 0x0014},
+                   {ErrorCode, 0x0009}, {XORRelayedAddress, 0x0016},
+                   {XORPeerAddress, 0x0012}, {RequestedTransport, 0x0019},
+                   {DontFragment, 0x001A}]
+
+  @external_attrs Application.get_env(:jerboa, Attributes, [])
+
+  @attrs @internal_attrs ++ @external_attrs
 
   @biggest_16 65_535
 
@@ -47,20 +49,13 @@ defmodule Jerboa.Format.Body.Attribute do
   @spec encode(Meta.t, struct) :: binary
   def encode(meta, attr) do
     {meta, value} = Encoder.encode(attr, meta)
-    type = Encoder.type_code(attr)
-    {meta, encode_(type, value)}
+    {meta, encode_(type(attr), value)}
   end
 
   @doc false
   @spec decode(Meta.t, type :: non_neg_integer, value :: binary)
     :: {:ok, Meta.t, t} | {:error, struct} | {:ignore, Meta.t}
-  for attr <- @internal_attrs do
-    type = Encoder.type_code(struct(attr))
-    def decode(meta, unquote(type), value) do
-      Decoder.decode(struct(unquote(attr)), value, meta)
-    end
-  end
-  for {type_code, attr_mod} <- @external_attrs do
+  for {attr_mod, type_code} <- @attrs do
     def decode(meta, unquote(type_code), value) do
       Decoder.decode(struct(unquote(attr_mod)), value, meta)
     end
@@ -70,7 +65,12 @@ defmodule Jerboa.Format.Body.Attribute do
   end
   def decode(meta, _, _), do: {:ignore, meta}
 
+  defp type(attr) do
+    @attrs[name(attr)] || raise "Cannot find type code for the attribute "
+  end
+
   defp encode_(type, value) when byte_size(value) < @biggest_16 do
     <<type::16, byte_size(value)::16, value::binary>>
   end
+
 end

@@ -18,10 +18,6 @@ defmodule Jerboa.Format.Body.Attribute.DontFragment do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.DontFragment
-    @type_code 0x001A
-
-    @spec type_code(DontFragment.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(DontFragment.t, Meta.t) :: {Meta.t, binary}
     def encode(_attr, meta), do: {meta, DontFragment.encode()}

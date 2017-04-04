@@ -20,10 +20,6 @@ defmodule Jerboa.Format.Body.Attribute.Realm do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Realm
-    @type_code 0x0014
-
-    @spec type_code(Realm.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(Realm.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, Realm.encode(attr)}

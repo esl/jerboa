@@ -25,10 +25,6 @@ defmodule Jerboa.Format.Body.Attribute.RequestedTransport do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.RequestedTransport
-    @type_code 0x0019
-
-    @spec type_code(RequestedTransport.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(RequestedTransport.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, RequestedTransport.encode(attr)}

@@ -20,10 +20,6 @@ defmodule Jerboa.Format.Body.Attribute.Nonce do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Nonce
-    @type_code 0x0015
-
-    @spec type_code(Nonce.t) :: integer
-    def type_code(_), do: @type_code
 
     @spec encode(Nonce.t, Meta.t) :: {Meta.t, binary}
     def encode(attr, meta), do: {meta, Nonce.encode(attr)}
