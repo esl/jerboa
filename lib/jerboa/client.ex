@@ -121,6 +121,22 @@ defmodule Jerboa.Client do
   end
 
   @doc """
+  Creates permission on the allocation for the given peer
+  address
+
+  If permission is already installed for the given address,
+  the permission will be refreshed.
+
+  ## Example
+
+      iex> create_permission client, {192, 168, 22, 111}
+  """
+  @spec create_permission(t, peer :: ip) :: :ok | {:error, error}
+  def create_permission(client, peer) do
+    GenServer.call(client, {:create_permission, peer})
+  end
+
+  @doc """
   Stops the client
   """
   @spec stop(t) :: :ok | {:error, error}

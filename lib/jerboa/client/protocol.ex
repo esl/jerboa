@@ -11,6 +11,7 @@ defmodule Jerboa.Client.Protocol do
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute.XORMappedAddress, as: XMA
   alias Jerboa.Format.Body.Attribute.XORRelayedAddress, as: XRA
+  alias Jerboa.Format.Body.Attribute.XORPeerAddress, as: XPA
   alias Jerboa.Format.Body.Attribute.{RequestedTransport, Username, Realm,
                                       Nonce, Lifetime, ErrorCode}
 
@@ -118,7 +119,37 @@ defmodule Jerboa.Client.Protocol do
       {:retry, new_state} ->
         {:retry, empty_transaction(new_state)}
     end
-     end
+  end
+
+  @spec create_perm_req(Worker.state, peer_addr :: Client.ip)
+    :: Worker.state
+  def create_perm_req(state, peer_addr) do
+    Logger.debug fn -> "Sending create permission request to the server" end
+    params = create_perm_params(state, peer_addr)
+    encode_request(params, state)
+  end
+
+  @spec eval_create_perm_resp(Worker.state)
+    :: {:ok, Worker.state}
+     | {{:error, Client.error}, Worker.state}
+     | {:retry, Worker.state}
+  def eval_create_perm_resp(state) do
+    case handle_create_perm_resp(state) do
+      {:ok, new_state} ->
+        Logger.debug fn ->
+          "Received success create permission reponse"
+        end
+        {:ok, empty_transaction(new_state)}
+      {:error, reason} ->
+        Logger.debug fn ->
+          "Error when receiving create permission response, " <>
+            "reason: #{inspect reason}"
+        end
+        {{:error, reason}, empty_transaction(state)}
+      {:retry, new_state} ->
+        {:retry, empty_transaction(new_state)}
+    end
+  end
 
   ## Internal functions
 
@@ -288,6 +319,33 @@ defmodule Jerboa.Client.Protocol do
         {:retry, new_state}
       true ->
         {:error, error.name}
+    end
+  end
+
+  @spec create_perm_params(Worker.state, Client.ip) :: Params.t
+  defp create_perm_params(state, peer_addr) do
+    Params.new()
+    |> Params.put_class(:request)
+    |> Params.put_method(:create_permission)
+    |> Params.put_attr(%Username{value: state.username})
+    |> Params.put_attr(%Realm{value: state.realm})
+    |> Params.put_attr(%Nonce{value: state.nonce})
+    |> Params.put_attr(XPA.new(peer_addr, 0))
+  end
+
+  @spec handle_create_perm_resp(Worker.state)
+    :: {:ok, Worker.state} | {:error, Client.error} | {:retry, Worker.state}
+  defp handle_create_perm_resp(state) do
+    params = decode_response(state)
+    with :ok <- validate_transaction_id(params, state),
+         :create_permission <- Params.get_method(params),
+         :success <- Params.get_class(params) do
+      {:ok, state}
+    else
+      :failure ->
+           maybe_retry_with_stale_nonce(state, params)
+      _ ->
+        {:error, :bad_response}
     end
   end
 end

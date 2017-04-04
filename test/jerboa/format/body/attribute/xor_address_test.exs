@@ -109,7 +109,7 @@ defmodule Jerboa.Format.Body.Attribute.XORAddressTest do
 
       attr = XORMappedAddress.new(address, port)
 
-      assert attr.family == :ipv4
+      assert attr.family == :ipv6
       assert attr.address == address
       assert attr.port == port
     end
