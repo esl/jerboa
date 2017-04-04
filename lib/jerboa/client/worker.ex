@@ -65,12 +65,7 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:ok, state.relayed_address}, state}
     else
       {result, new_state} = request_allocation(state, @default_retries)
-      case result do
-        {:ok, _} ->
-          {:reply, result, update_lifetime_timer(new_state)}
-        _ ->
-          {:reply, result, new_state}
-      end
+      {:reply, result, new_state}
     end
   end
   def handle_call(:refresh, _, state) do
@@ -81,12 +76,7 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_allocation}, state}
     else
       {result, new_state} = request_refresh(state, @default_retries)
-      case result do
-        :ok ->
-          {:reply, result, update_lifetime_timer(new_state)}
-        _ ->
-          {:reply, result, new_state}
-      end
+      {:reply, result, new_state}
     end
   end
 
@@ -98,6 +88,7 @@ defmodule Jerboa.Client.Worker do
   end
 
   def handle_info(:allocation_expired, state) do
+    Logger.debug "Allocation timed out"
     new_state = %{state | lifetime_timer_ref: nil,
                           relayed_address: nil,
                           lifetime: nil}
@@ -138,12 +129,15 @@ defmodule Jerboa.Client.Worker do
       |> Protocol.allocate_req()
       |> send_req()
       |> Protocol.eval_allocate_resp()
-    with n when n > 0 <- retries_left,
-         :retry <- result do
+    with :retry <- result,
+         n when n > 0 <- retries_left do
       Logger.debug fn -> "Received error allocate response, retrying.." end
       request_allocation(new_state, n - 1)
     else
-      _ -> {result, new_state}
+      {:ok, _} ->
+        {result, update_lifetime_timer(new_state)}
+      _ ->
+        {result, new_state}
     end
   end
 
@@ -170,12 +164,15 @@ defmodule Jerboa.Client.Worker do
       |> Protocol.refresh_req()
       |> send_req()
       |> Protocol.eval_refresh_resp()
-    with n when n > 0 <- retries_left,
-         :retry <- result do
+    with :retry <- result,
+         n when n > 0 <- retries_left do
       Logger.debug fn -> "Received error refresh response, retrying.." end
       request_refresh(new_state, n - 1)
     else
-      _ -> {result, new_state}
+      :ok ->
+        {result, update_lifetime_timer(new_state)}
+      _ ->
+        {result, new_state}
     end
   end
 
