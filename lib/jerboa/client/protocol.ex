@@ -269,15 +269,15 @@ defmodule Jerboa.Client.Protocol do
       {:ok, new_state}
     else
       :failure ->
-           handle_refresh_failure(state, params)
+           maybe_retry_with_stale_nonce(state, params)
       _ ->
         {:error, :bad_response}
     end
   end
 
-  @spec handle_refresh_failure(Worker.state, resp :: Params.t)
+  @spec maybe_retry_with_stale_nonce(Worker.state, resp :: Params.t)
     :: {:retry, Worker.state} | {:error, Client.error}
-  defp handle_refresh_failure(state, params) do
+  defp maybe_retry_with_stale_nonce(state, params) do
     nonce_attr = Params.get_attr(params, Nonce)
     error = Params.get_attr(params, ErrorCode)
     cond do
