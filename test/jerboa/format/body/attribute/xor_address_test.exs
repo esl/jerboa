@@ -91,7 +91,31 @@ defmodule Jerboa.Format.Body.Attribute.XORAddressTest do
     end
   end
 
-  describe "XORMappedAddress.encode/2" do
+  describe "new/2" do
+    test "fills IPv4 family given address and port" do
+      address = {0, 0, 0, 0}
+      port = 1234
+
+      attr = XORMappedAddress.new(address, port)
+
+      assert attr.family == :ipv4
+      assert attr.address == address
+      assert attr.port == port
+    end
+
+    test "fills IPv6 family given address and port" do
+      address = {0, 0, 0, 0, 0, 0, 0, 0}
+      port = 1234
+
+      attr = XORMappedAddress.new(address, port)
+
+      assert attr.family == :ipv4
+      assert attr.address == address
+      assert attr.port == port
+    end
+  end
+
+  describe "XORAddress.encode/2" do
 
     test "IPv4" do
       attr = XORMAHelper.struct(4)

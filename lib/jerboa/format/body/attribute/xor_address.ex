@@ -28,6 +28,18 @@ defmodule Jerboa.Format.Body.Attribute.XORAddress do
         port: :inet.port_number
       }
 
+      @doc """
+      Creates new address struct and fills address family
+      based on passed IP address format
+      """
+      @spec new(address :: :inet.ip_address, port :: :inet.port_number) :: t
+      def new({_, _, _, _} = addr, port) do
+        %__MODULE__{family: :ipv4, address: addr, port: port}
+      end
+      def new({_, _, _, _, _, _, _, _} = addr, port) do
+        %__MODULE__{family: :ipv6, address: addr, port: port}
+      end
+
       defimpl Jerboa.Format.Body.Attribute.Encoder do
         def type_code(_), do: unquote(type_code)
 
