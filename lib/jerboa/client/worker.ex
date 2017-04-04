@@ -72,26 +72,26 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call(:refresh, _, state) do
-    unless state.relayed_address do
+    if state.relayed_address do
+      {result, new_state} = request_refresh(state, @default_retries)
+      {:reply, result, new_state}
+    else
       Logger.debug fn ->
         "No allocation present on the server, refresh request blocked"
       end
       {:reply, {:error, :no_allocation}, state}
-    else
-      {result, new_state} = request_refresh(state, @default_retries)
-      {:reply, result, new_state}
     end
   end
   def handle_call({:create_permission, peer_address}, _, state) do
-    unless state.relayed_address do
+    if state.relayed_address do
+      {result, new_state} =
+        request_permission(state, peer_address, @default_retries)
+      {:reply, result, new_state}
+    else
       Logger.debug fn ->
         "No allocation present on the server, create permission request blocked"
       end
       {:reply, {:error, :no_allocation}, state}
-    else
-      {result, new_state} =
-        request_permission(state, peer_address, @default_retries)
-      {:reply, result, new_state}
     end
   end
 
@@ -228,7 +228,8 @@ defmodule Jerboa.Client.Worker do
 
   @spec update_permission(state, Client.ip) :: state
   defp update_permission(state, peer_addr) do
-    remove_permission(state, peer_addr)
+    state
+    |> remove_permission(peer_addr)
     |> add_permission(peer_addr)
   end
 

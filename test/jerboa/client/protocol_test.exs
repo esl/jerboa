@@ -441,7 +441,6 @@ defmodule Jerboa.Client.ProtocolTest do
     %{transaction: %{req: msg}} = state |> Protocol.refresh_req()
     params = msg |> Format.decode!(secret: secret)
 
-
     assert Params.get_class(params) == :request
     assert Params.get_method(params) == :refresh
     assert Params.get_attr(params, Realm) == %Realm{value: realm}
@@ -608,7 +607,6 @@ defmodule Jerboa.Client.ProtocolTest do
 
     %{transaction: %{req: msg}} = state |> Protocol.create_perm_req(peer_addr)
     params = msg |> Format.decode!(secret: secret)
-
 
     assert Params.get_class(params) == :request
     assert Params.get_method(params) == :create_permission

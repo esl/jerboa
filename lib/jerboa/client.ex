@@ -65,7 +65,7 @@ defmodule Jerboa.Client do
 
   alias Jerboa.Client
 
-  @doc """
+  @doc ~S"""
   Starts STUN client process
 
       iex> opts = [server: {{192, 168, 1, 20}, 3478}, username: "user", secret: "abcd"]
