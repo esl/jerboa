@@ -12,11 +12,13 @@ defmodule Jerboa.Client.Worker do
 
   defstruct [:server, :socket, :mapped_address, :username, :secret,
              :realm, :nonce, :relayed_address, :lifetime, :lifetime_timer_ref,
-             transaction: %Transaction{}]
+             transaction: %Transaction{}, permissions: []]
 
   @default_retries 1
+  @permission_expiry 5  * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
+  @type permission :: {peer_addr :: Client.ip, timer_red :: reference}
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
@@ -28,7 +30,8 @@ defmodule Jerboa.Client.Worker do
     nonce: String.t,
     relayed_address: Client.address,
     lifetime: non_neg_integer,
-    lifetime_timer_ref: reference
+    lifetime_timer_ref: reference,
+    permissions: [permission]
   }
 
   @system_allocated_port 0
@@ -69,14 +72,26 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call(:refresh, _, state) do
-    unless state.relayed_address do
+    if state.relayed_address do
+      {result, new_state} = request_refresh(state, @default_retries)
+      {:reply, result, new_state}
+    else
       Logger.debug fn ->
         "No allocation present on the server, refresh request blocked"
       end
       {:reply, {:error, :no_allocation}, state}
-    else
-      {result, new_state} = request_refresh(state, @default_retries)
+    end
+  end
+  def handle_call({:create_permission, peer_address}, _, state) do
+    if state.relayed_address do
+      {result, new_state} =
+        request_permission(state, peer_address, @default_retries)
       {:reply, result, new_state}
+    else
+      Logger.debug fn ->
+        "No allocation present on the server, create permission request blocked"
+      end
+      {:reply, {:error, :no_allocation}, state}
     end
   end
 
@@ -88,11 +103,16 @@ defmodule Jerboa.Client.Worker do
   end
 
   def handle_info(:allocation_expired, state) do
-    Logger.debug "Allocation timed out"
+    Logger.debug fn -> "Allocation timed out" end
     new_state = %{state | lifetime_timer_ref: nil,
                           relayed_address: nil,
-                          lifetime: nil}
+                          lifetime: nil,
+                          permissions: []}
     {:noreply, new_state}
+  end
+  def handle_info({:permission_expired, peer_addr}, state) do
+    Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
+    {:noreply, remove_permission(state, peer_addr)}
   end
 
   def terminate(_, state) do
@@ -176,11 +196,61 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
+  @spec request_permission(state, peer :: Client.ip,
+    retries_left :: pos_integer) :: {result :: term, state}
+  def request_permission(state, peer_addr, retries_left) do
+    {result, new_state} =
+      state
+      |> Protocol.create_perm_req(peer_addr)
+      |> send_req()
+      |> Protocol.eval_create_perm_resp()
+    with :retry <- result,
+         n when n > 0 <- retries_left do
+      Logger.debug fn ->
+        "Received error create permission response, retrying.."
+      end
+      request_permission(new_state, peer_addr, n - 1)
+    else
+      :ok ->
+        {result, update_permission(new_state, peer_addr)}
+      _ ->
+        {result, new_state}
+    end
+  end
+
   @spec setup_logger_metadata(state) :: any
   defp setup_logger_metadata(%{socket: socket, server: server}) do
     {:ok, port} = :inet.port(socket)
     metadata = [jerboa_client: "#{inspect self()}:#{port}",
                 jerboa_server: Client.format_address(server)]
     Logger.metadata(metadata)
+  end
+
+  @spec update_permission(state, Client.ip) :: state
+  defp update_permission(state, peer_addr) do
+    state
+    |> remove_permission(peer_addr)
+    |> add_permission(peer_addr)
+  end
+
+  @spec remove_permission(state, Client.ip) :: state
+  defp remove_permission(state, peer_addr) do
+    {removed, remaining} =
+      Enum.split_with(state.permissions, fn {addr, _} -> addr == peer_addr end)
+    case removed do
+      [{^peer_addr, timer_ref}] ->
+        Process.cancel_timer timer_ref
+      _ ->
+        :ok
+    end
+    %{state | permissions: remaining}
+  end
+
+  @spec add_permission(state, Client.ip) :: state
+  defp add_permission(state, peer_addr) do
+    timer_ref = Process.send_after self(),
+      {:permission_expired, peer_addr}, @permission_expiry
+    permission = {peer_addr, timer_ref}
+    %{state | permissions: [permission | state.permissions]}
   end
 end

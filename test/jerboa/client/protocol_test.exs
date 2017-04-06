@@ -8,7 +8,7 @@ defmodule Jerboa.Client.ProtocolTest do
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, RequestedTransport,
                                       Username, Realm, Nonce, XORRelayedAddress,
-                                      Lifetime, ErrorCode}
+                                      Lifetime, ErrorCode, XORPeerAddress}
 
   @moduletag :now
 
@@ -441,7 +441,6 @@ defmodule Jerboa.Client.ProtocolTest do
     %{transaction: %{req: msg}} = state |> Protocol.refresh_req()
     params = msg |> Format.decode!(secret: secret)
 
-
     assert Params.get_class(params) == :request
     assert Params.get_method(params) == :refresh
     assert Params.get_attr(params, Realm) == %Realm{value: realm}
@@ -594,6 +593,132 @@ defmodule Jerboa.Client.ProtocolTest do
 
       assert {:ok, new_state} = Protocol.eval_refresh_resp(state)
       assert new_state.lifetime == duration
+    end
+  end
+
+  test "create_perm_req/2 returns encoded refresh request" do
+    peer_addr = {0, 0, 0, 0}
+    username = "alice"
+    realm = "wonderland"
+    secret = "1234"
+    nonce = "abcd"
+    state = %Worker{username: username, realm: realm, secret: secret,
+                    nonce: nonce}
+
+    %{transaction: %{req: msg}} = state |> Protocol.create_perm_req(peer_addr)
+    params = msg |> Format.decode!(secret: secret)
+
+    assert Params.get_class(params) == :request
+    assert Params.get_method(params) == :create_permission
+    assert Params.get_attr(params, Realm) == %Realm{value: realm}
+    assert Params.get_attr(params, Username) == %Username{value: username}
+    assert Params.get_attr(params, Nonce) == %Nonce{value: nonce}
+    assert %XORPeerAddress{address: ^peer_addr} =
+      Params.get_attr(params, XORPeerAddress)
+  end
+
+  describe "eval_create_perm_resp/1" do
+    test "returns error when response method is invalid" do
+      username = "alice"
+      realm = "wonderland"
+      secret = "1234"
+      resp_params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:binding)
+      t_id = resp_params.identifier
+
+      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
+                      realm: realm, secret: secret}
+
+      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
+    end
+
+    test "returns error on failure response without error code" do
+      username = "alice"
+      realm = "wonderland"
+      secret = "1234"
+      resp_params =
+        Params.new()
+        |> Params.put_class(:failure)
+        |> Params.put_method(:create_permission)
+      t_id = resp_params.identifier
+
+      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
+                      realm: realm, secret: secret}
+
+      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
+    end
+
+    test "returns error on response with invalid transaction id" do
+      username = "alice"
+      realm = "wonderland"
+      secret = "1234"
+      resp_params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:refresh)
+      t_id = Params.generate_id()
+
+      resp = Format.encode(resp_params)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
+                      realm: realm, secret: secret}
+
+      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
+    end
+
+    test "returns :retry if error reason is :stale_nonce" do
+      realm = "wonderland"
+      old_nonce = "dcba"
+      new_nonce = "abcd"
+      resp_params =
+        Params.new()
+        |> Params.put_class(:failure)
+        |> Params.put_method(:create_permission)
+        |> Params.put_attr(%Realm{value: realm})
+        |> Params.put_attr(%Nonce{value: new_nonce})
+        |> Params.put_attr(%ErrorCode{name: :stale_nonce})
+      t_id = resp_params.identifier
+
+      resp = Format.encode(resp_params)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, nonce: old_nonce}
+
+      assert {:retry, new_state} = Protocol.eval_create_perm_resp(state)
+      assert new_state.nonce == new_nonce
+    end
+
+    test "returns error if error reason is different than :stale_nonce" do
+      error = :try_alternate
+      resp_params =
+        Params.new()
+        |> Params.put_class(:failure)
+        |> Params.put_method(:create_permission)
+        |> Params.put_attr(%ErrorCode{name: error})
+      t_id = resp_params.identifier
+
+      resp = Format.encode(resp_params)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
+
+      assert {{:error, ^error}, _} = Protocol.eval_create_perm_resp(state)
+    end
+
+    test "returns :ok on valid create permission response" do
+      username = "alice"
+      realm = "wonderland"
+      secret = "1234"
+      resp_params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:create_permission)
+      t_id = resp_params.identifier
+
+      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
+                      realm: realm, secret: secret}
+
+      assert {:ok, _} = Protocol.eval_create_perm_resp(state)
     end
   end
 end

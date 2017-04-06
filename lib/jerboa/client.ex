@@ -65,7 +65,7 @@ defmodule Jerboa.Client do
 
   alias Jerboa.Client
 
-  @doc """
+  @doc ~S"""
   Starts STUN client process
 
       iex> opts = [server: {{192, 168, 1, 20}, 3478}, username: "user", secret: "abcd"]
@@ -118,6 +118,22 @@ defmodule Jerboa.Client do
   @spec refresh(t) :: :ok | {:error, error}
   def refresh(client) do
     GenServer.call(client, :refresh)
+  end
+
+  @doc """
+  Creates permission on the allocation for the given peer
+  address
+
+  If permission is already installed for the given address,
+  the permission will be refreshed.
+
+  ## Example
+
+      iex> create_permission client, {192, 168, 22, 111}
+  """
+  @spec create_permission(t, peer :: ip) :: :ok | {:error, error}
+  def create_permission(client, peer) do
+    GenServer.call(client, {:create_permission, peer})
   end
 
   @doc """

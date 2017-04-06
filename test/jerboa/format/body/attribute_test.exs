@@ -279,7 +279,6 @@ defmodule Jerboa.Format.Body.AttributeTest do
       assert {:ok, _, ^attr} = Attribute.decode(meta, 0x001A, value(bin))
     end
 
-
     test "EVEN-PORT" do
       attr = %EvenPort{}
       meta = %Meta{}
