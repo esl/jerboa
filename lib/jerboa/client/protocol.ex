@@ -121,11 +121,11 @@ defmodule Jerboa.Client.Protocol do
     end
   end
 
-  @spec create_perm_req(Worker.state, peer_addr :: Client.ip)
+  @spec create_perm_req(Worker.state, peer_addrs :: [Client.ip, ...])
     :: Worker.state
-  def create_perm_req(state, peer_addr) do
+  def create_perm_req(state, peer_addrs) do
     Logger.debug fn -> "Sending create permission request to the server" end
-    params = create_perm_params(state, peer_addr)
+    params = create_perm_params(state, peer_addrs)
     encode_request(params, state)
   end
 
@@ -322,15 +322,16 @@ defmodule Jerboa.Client.Protocol do
     end
   end
 
-  @spec create_perm_params(Worker.state, Client.ip) :: Params.t
-  defp create_perm_params(state, peer_addr) do
+  @spec create_perm_params(Worker.state, [Client.ip, ...]) :: Params.t
+  defp create_perm_params(state, peer_addrs) do
+    xor_peer_addrs = Enum.map peer_addrs, fn addr -> XPA.new(addr, 0) end
     Params.new()
     |> Params.put_class(:request)
     |> Params.put_method(:create_permission)
     |> Params.put_attr(%Username{value: state.username})
     |> Params.put_attr(%Realm{value: state.realm})
     |> Params.put_attr(%Nonce{value: state.nonce})
-    |> Params.put_attr(XPA.new(peer_addr, 0))
+    |> Params.put_attrs(xor_peer_addrs)
   end
 
   @spec handle_create_perm_resp(Worker.state)

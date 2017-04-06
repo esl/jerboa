@@ -596,8 +596,9 @@ defmodule Jerboa.Client.ProtocolTest do
     end
   end
 
-  test "create_perm_req/2 returns encoded refresh request" do
-    peer_addr = {0, 0, 0, 0}
+  test "create_perm_req/2 returns encoded create permission request" do
+    peer_addr1 = {0, 0, 0, 0}
+    peer_addr2 = {1, 1, 1, 1}
     username = "alice"
     realm = "wonderland"
     secret = "1234"
@@ -605,16 +606,22 @@ defmodule Jerboa.Client.ProtocolTest do
     state = %Worker{username: username, realm: realm, secret: secret,
                     nonce: nonce}
 
-    %{transaction: %{req: msg}} = state |> Protocol.create_perm_req(peer_addr)
+    %{transaction: %{req: msg}} =
+      state
+      |> Protocol.create_perm_req([peer_addr1, peer_addr2])
     params = msg |> Format.decode!(secret: secret)
+    peer_addrs =
+      params
+      |> Params.get_attrs(XORPeerAddress)
+      |> Enum.map(fn xpa -> xpa.address end)
 
     assert Params.get_class(params) == :request
     assert Params.get_method(params) == :create_permission
     assert Params.get_attr(params, Realm) == %Realm{value: realm}
     assert Params.get_attr(params, Username) == %Username{value: username}
     assert Params.get_attr(params, Nonce) == %Nonce{value: nonce}
-    assert %XORPeerAddress{address: ^peer_addr} =
-      Params.get_attr(params, XORPeerAddress)
+    assert peer_addr1 in peer_addrs
+    assert peer_addr2 in peer_addrs
   end
 
   describe "eval_create_perm_resp/1" do

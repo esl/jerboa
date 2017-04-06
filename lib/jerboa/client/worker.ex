@@ -82,10 +82,10 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_allocation}, state}
     end
   end
-  def handle_call({:create_permission, peer_address}, _, state) do
+  def handle_call({:create_permission, peer_addrs}, _, state) do
     if state.relayed_address do
       {result, new_state} =
-        request_permission(state, peer_address, @default_retries)
+        request_permission(state, peer_addrs, @default_retries)
       {:reply, result, new_state}
     else
       Logger.debug fn ->
@@ -112,7 +112,7 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_info({:permission_expired, peer_addr}, state) do
     Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
-    {:noreply, remove_permission(state, peer_addr)}
+    {:noreply, remove_permissions(state, [peer_addr])}
   end
 
   def terminate(_, state) do
@@ -196,12 +196,12 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec request_permission(state, peer :: Client.ip,
+  @spec request_permission(state, peers :: [Client.ip, ...],
     retries_left :: pos_integer) :: {result :: term, state}
-  def request_permission(state, peer_addr, retries_left) do
+  def request_permission(state, peer_addrs, retries_left) do
     {result, new_state} =
       state
-      |> Protocol.create_perm_req(peer_addr)
+      |> Protocol.create_perm_req(peer_addrs)
       |> send_req()
       |> Protocol.eval_create_perm_resp()
     with :retry <- result,
@@ -209,10 +209,10 @@ defmodule Jerboa.Client.Worker do
       Logger.debug fn ->
         "Received error create permission response, retrying.."
       end
-      request_permission(new_state, peer_addr, n - 1)
+      request_permission(new_state, peer_addrs, n - 1)
     else
       :ok ->
-        {result, update_permission(new_state, peer_addr)}
+        {result, update_permissions(new_state, peer_addrs)}
       _ ->
         {result, new_state}
     end
@@ -226,31 +226,31 @@ defmodule Jerboa.Client.Worker do
     Logger.metadata(metadata)
   end
 
-  @spec update_permission(state, Client.ip) :: state
-  defp update_permission(state, peer_addr) do
+  @spec update_permissions(state, [Client.ip, ...]) :: state
+  defp update_permissions(state, peer_addrs) do
     state
-    |> remove_permission(peer_addr)
-    |> add_permission(peer_addr)
+    |> remove_permissions(peer_addrs)
+    |> add_permissions(peer_addrs)
   end
 
-  @spec remove_permission(state, Client.ip) :: state
-  defp remove_permission(state, peer_addr) do
+  @spec remove_permissions(state, [Client.ip, ...]) :: state
+  defp remove_permissions(state, peer_addrs) do
     {removed, remaining} =
-      Enum.split_with(state.permissions, fn {addr, _} -> addr == peer_addr end)
-    case removed do
-      [{^peer_addr, timer_ref}] ->
-        Process.cancel_timer timer_ref
-      _ ->
-        :ok
+      Enum.split_with(state.permissions, fn {addr, _} -> addr in peer_addrs end)
+    for {_, timer_ref} <- removed do
+      Process.cancel_timer timer_ref
     end
     %{state | permissions: remaining}
   end
 
-  @spec add_permission(state, Client.ip) :: state
-  defp add_permission(state, peer_addr) do
-    timer_ref = Process.send_after self(),
-      {:permission_expired, peer_addr}, @permission_expiry
-    permission = {peer_addr, timer_ref}
-    %{state | permissions: [permission | state.permissions]}
+  @spec add_permissions(state, [Client.ip, ...]) :: state
+  defp add_permissions(state, peer_addrs) do
+    new_permissions =
+      Enum.map peer_addrs, fn addr ->
+        timer_ref = Process.send_after self(),
+          {:permission_expired, addr}, @permission_expiry
+        {addr, timer_ref}
+      end
+    %{state | permissions: new_permissions ++ state.permissions}
   end
 end
