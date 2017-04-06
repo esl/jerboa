@@ -3,7 +3,7 @@ defmodule Jerboa.ParamsTest do
 
   alias Jerboa.Params
   alias Jerboa.Format.Body.Attribute
-  alias Attribute.XORMappedAddress
+  alias Attribute.{XORMappedAddress, Data}
 
   test "new/0 returns fresh params struct with ID set" do
     p = Params.new
@@ -56,22 +56,36 @@ defmodule Jerboa.ParamsTest do
     assert id == Params.get_id(p)
   end
 
-  test "put_attrs/1 sets whole attributes list" do
+  test "set_attrs/1 sets whole attributes list" do
+    params = Params.new() |> Params.put_attr(%Data{})
     attrs = List.duplicate(%XORMappedAddress{}, 3)
 
-    p = Params.new() |> Params.put_attrs(attrs)
+    p = params |> Params.set_attrs(attrs)
 
     assert p.attributes == attrs
   end
 
   test "get_attrs/1 retrieves whole attributes list" do
     attrs = List.duplicate(%XORMappedAddress{}, 3)
-    p = Params.new |> Params.put_attrs(attrs)
+    p = Params.new |> Params.set_attrs(attrs)
 
     assert attrs == Params.get_attrs(p)
   end
 
-  describe "put_attr/2" do
+  test "get_attrs/2 retrieves all attributes with given name" do
+    attr1 = %XORMappedAddress{family: :ipv4}
+    attr2 = %XORMappedAddress{family: :ipv6}
+    attr3 = %Data{}
+
+    p = Params.new() |> Params.set_attrs([attr1, attr2, attr3])
+    attrs = Params.get_attrs(p, XORMappedAddress)
+
+    assert attr1 in attrs
+    assert attr2 in attrs
+    refute attr3 in attrs
+  end
+
+  describe "put_attr/3" do
     test "adds attribute to attributes list in params struct" do
       attr = %XORMappedAddress{family: :ipv4,
                                address: {127, 0, 0, 1},
@@ -82,14 +96,36 @@ defmodule Jerboa.ParamsTest do
       assert [attr] == Params.get_attrs(p)
     end
 
-    test "overrides existing attribute with the same name" do
+    test "overwrites existing attributes with the same name (with overwrite: true)" do
       attr1 = %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 3333}
-      attr2 = %XORMappedAddress{family: :ipv, address: {0, 0, 0, 0, 0, 0, 0, 1},
+      attr2 = %XORMappedAddress{family: :ipv6, address: {0, 0, 0, 0, 0, 0, 0, 1},
                                 port: 3333}
+      attr3 =  %XORMappedAddress{family: :ipv6, address: {0, 0, 0, 0, 0, 0, 0, 1},
+                                 port: 1234}
 
-      p = Params.new() |> Params.put_attr(attr1) |> Params.put_attr(attr2)
+      p =
+        Params.new()
+        |> Params.set_attrs([attr1, attr2])
+        |> Params.put_attr(attr3, overwrite: true)
 
-      assert [attr2] == Params.get_attrs(p)
+      assert [attr3] == Params.get_attrs(p)
+    end
+
+    test "does not overwrite exisiting attibutes (with overwrite: false)" do
+      attr1 = %XORMappedAddress{family: :ipv4, address: {127, 0, 0, 1}, port: 3333}
+      attr2 = %XORMappedAddress{family: :ipv6, address: {0, 0, 0, 0, 0, 0, 0, 1},
+                                port: 3333}
+      attr3 = %Data{}
+
+      p =
+        Params.new()
+        |> Params.set_attrs([attr1, attr2])
+        |> Params.put_attr(attr3, overwrite: true)
+      attrs = Params.get_attrs(p)
+
+      assert attr1 in attrs
+      assert attr2 in attrs
+      assert attr3 in attrs
     end
   end
 
@@ -107,5 +143,21 @@ defmodule Jerboa.ParamsTest do
 
       assert nil == Params.get_attr(p, XORMappedAddress)
     end
+  end
+
+  test "put_attrs/2 adds attributes to params struct" do
+    attr1 = %XORMappedAddress{family: :ipv4}
+    attr2 = %XORMappedAddress{family: :ipv6}
+    attr3 = %Data{}
+
+    p =
+      Params.new()
+      |> Params.set_attrs([attr1])
+      |> Params.put_attrs([attr2, attr3])
+    attrs = Params.get_attrs(p)
+
+    assert attr1 in attrs
+    assert attr2 in attrs
+    assert attr3 in attrs
   end
 end

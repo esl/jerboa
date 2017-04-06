@@ -93,10 +93,18 @@ defmodule Jerboa.Params do
   def get_attrs(%__MODULE__{attributes: attrs}), do: attrs
 
   @doc """
+  Retrieves all attributes with given name from params struct
+  """
+  @spec get_attrs(t, attr_name :: module) :: [Attribute.t]
+  def get_attrs(%__MODULE__{attributes: attrs}, attr_name) do
+    Enum.filter attrs, & Attribute.name(&1) == attr_name
+  end
+
+  @doc """
   Sets whole attributes list in params struct
   """
-  @spec put_attrs(t, [Attribute.t]) :: t
-  def put_attrs(params, attrs) do
+  @spec set_attrs(t, [Attribute.t]) :: t
+  def set_attrs(params, attrs) do
     %{params | attributes: attrs}
   end
 
@@ -114,15 +122,33 @@ defmodule Jerboa.Params do
   @doc """
   Puts single attribute in params struct
 
-  If given attribute was already present, it will be overriden, so
-  that there are no duplicates.
+  `:overwrite` option determines wheter attributes of the same type
+  will be removed and the new one will be put in their place.
+  Defaults to `true`.
   """
-  @spec put_attr(t, Attribute.t) :: t
-  def put_attr(params, attr) do
+  @spec put_attr(t, Attribute.t, overwrite: boolean) :: t
+  def put_attr(params, attr, opts \\ [overwrite: true])
+  def put_attr(params, attr, opts) do
     attrs =
-      params.attributes
-      |> Enum.reject(fn a -> Attribute.name(a) === Attribute.name(attr) end)
+      if opts[:overwrite] do
+        params.attributes
+        |> Enum.reject(fn a -> Attribute.name(a) === Attribute.name(attr) end)
+      else
+        params.attributes
+      end
     %{params | attributes: [attr | attrs]}
+  end
+
+  @doc """
+  Adds list of attriubutes to params struct
+
+  It's functionally equal to recursively calling `put_attr/2`
+  with `overwrite: false` on params struct.
+  """
+  @spec put_attrs(t, [Attribute.t]) :: t
+  def put_attrs(params, attrs) when is_list(attrs) do
+    Enum.reduce attrs, params,
+      fn attr, acc -> put_attr(acc, attr, overwrite: false) end
   end
 
   @doc """
