@@ -5,13 +5,14 @@ defmodule Jerboa.Client.Worker do
 
   alias :gen_udp, as: UDP
   alias Jerboa.Client
+  alias Jerboa.Client.Credentials
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.Transaction
 
   require Logger
 
-  defstruct [:server, :socket, :mapped_address, :username, :secret,
-             :realm, :nonce, :relayed_address, :lifetime, :lifetime_timer_ref,
+  defstruct [:server, :socket, :mapped_address, :relayed_address,
+             :lifetime, :lifetime_timer_ref, credentials: %Credentials{},
              transaction: %Transaction{}, permissions: []]
 
   @default_retries 1
@@ -22,12 +23,9 @@ defmodule Jerboa.Client.Worker do
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
+    credentials: Credentials.t,
     transaction: Transaction.t,
     mapped_address: Client.address,
-    username: String.t,
-    secret: String.t,
-    realm: String.t,
-    nonce: String.t,
     relayed_address: Client.address,
     lifetime: non_neg_integer,
     lifetime_timer_ref: reference,
@@ -46,7 +44,14 @@ defmodule Jerboa.Client.Worker do
   def init(opts) do
     false = Process.flag(:trap_exit, true)
     {:ok, socket} = UDP.open(@system_allocated_port, [:binary, active: false])
-    state = Protocol.init_state(opts, socket)
+    state = %__MODULE__{
+      socket: socket,
+      server: opts[:server],
+      credentials: %Credentials{
+        username: opts[:username],
+        realm: opts[:realm]
+      }
+    }
     setup_logger_metadata(state)
     Logger.debug fn -> "Initialized client" end
     {:ok, state}

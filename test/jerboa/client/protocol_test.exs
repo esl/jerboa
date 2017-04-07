@@ -4,6 +4,7 @@ defmodule Jerboa.Client.ProtocolTest do
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.Transaction
   alias Jerboa.Client.Worker
+  alias Jerboa.Client.Credentials
   alias Jerboa.Params
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute.{XORMappedAddress, RequestedTransport,
@@ -134,7 +135,8 @@ defmodule Jerboa.Client.ProtocolTest do
       realm = "wonderland"
       secret = "1234"
       nonce = "abcd"
-      state = %Worker{username: username, realm: realm, secret: secret, nonce: nonce}
+      credentials = %Credentials{username: username, realm: realm, secret: secret, nonce: nonce}
+      state = %Worker{credentials: credentials}
 
       %{transaction: %{req: msg}} = state |> Protocol.allocate_req()
       params = Format.decode!(msg, secret: secret)
@@ -164,8 +166,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -184,8 +186,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = Params.generate_id()
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -212,8 +214,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -240,8 +242,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -268,8 +270,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -300,8 +302,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -332,8 +334,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
     end
@@ -352,10 +354,11 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, nonce: old_nonce}
+      credentials = %Credentials{nonce: old_nonce}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:retry, new_state} = Protocol.eval_allocate_resp(state)
-      assert new_state.nonce == new_nonce
+      assert new_state.credentials.nonce == new_nonce
     end
 
     test "returns :retry and updates realm and nonce if error response is :unauthorized" do
@@ -374,8 +377,8 @@ defmodule Jerboa.Client.ProtocolTest do
       state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
 
       assert {:retry, new_state} = Protocol.eval_allocate_resp(state)
-      assert new_state.nonce == nonce
-      assert new_state.realm == realm
+      assert new_state.credentials.nonce == nonce
+      assert new_state.credentials.realm == realm
     end
 
     test "returns error if error response doesn't have error code attribute" do
@@ -420,8 +423,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:ok, {^address, ^port}}, new_state} = Protocol.eval_allocate_resp(state)
       assert new_state.mapped_address == {address, port}
@@ -435,8 +438,9 @@ defmodule Jerboa.Client.ProtocolTest do
     realm = "wonderland"
     secret = "1234"
     nonce = "abcd"
-    state = %Worker{username: username, realm: realm, secret: secret,
-                    nonce: nonce}
+    credentials = %Credentials{username: username, realm: realm, secret: secret,
+                 nonce: nonce}
+    state = %Worker{credentials: credentials}
 
     %{transaction: %{req: msg}} = state |> Protocol.refresh_req()
     params = msg |> Format.decode!(secret: secret)
@@ -465,8 +469,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
     end
@@ -485,8 +489,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
     end
@@ -505,8 +509,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
     end
@@ -527,8 +531,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = Params.generate_id()
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
     end
@@ -547,10 +551,11 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, nonce: old_nonce}
+      credentials = %Credentials{nonce: old_nonce}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:retry, new_state} = Protocol.eval_refresh_resp(state)
-      assert new_state.nonce == new_nonce
+      assert new_state.credentials.nonce == new_nonce
     end
 
     test "returns error if error reason is different than :stale_nonce" do
@@ -588,8 +593,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:ok, new_state} = Protocol.eval_refresh_resp(state)
       assert new_state.lifetime == duration
@@ -603,8 +608,9 @@ defmodule Jerboa.Client.ProtocolTest do
     realm = "wonderland"
     secret = "1234"
     nonce = "abcd"
-    state = %Worker{username: username, realm: realm, secret: secret,
-                    nonce: nonce}
+    credentials = %Credentials{username: username, realm: realm, secret: secret,
+                 nonce: nonce}
+    state = %Worker{credentials: credentials}
 
     %{transaction: %{req: msg}} =
       state
@@ -636,8 +642,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
     end
@@ -653,8 +659,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
     end
@@ -670,8 +676,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = Params.generate_id()
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
     end
@@ -690,10 +696,11 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, nonce: old_nonce}
+      credentials = %Credentials{nonce: old_nonce}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:retry, new_state} = Protocol.eval_create_perm_resp(state)
-      assert new_state.nonce == new_nonce
+      assert new_state.credentials.nonce == new_nonce
     end
 
     test "returns error if error reason is different than :stale_nonce" do
@@ -722,8 +729,8 @@ defmodule Jerboa.Client.ProtocolTest do
       t_id = resp_params.identifier
 
       resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, username: username,
-                      realm: realm, secret: secret}
+      credentials = %Credentials{username: username, realm: realm, secret: secret}
+      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:ok, _} = Protocol.eval_create_perm_resp(state)
     end

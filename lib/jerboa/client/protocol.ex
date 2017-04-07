@@ -19,16 +19,6 @@ defmodule Jerboa.Client.Protocol do
 
   ## API
 
-  @spec init_state(Client.start_opts, Worker.socket) :: Worker.state
-  def init_state(opts, socket) do
-    %Worker{
-      socket: socket,
-      server: opts[:server],
-      username: opts[:username],
-      secret: opts[:secret]
-    }
-  end
-
   @spec bind_req(Worker.state) :: Worker.state
   def bind_req(state) do
     Logger.debug fn -> "Sending binding request to the server" end
@@ -185,11 +175,11 @@ defmodule Jerboa.Client.Protocol do
       |> Params.put_method(:allocate)
       |> Params.put_attr(%RequestedTransport{})
 
-    if state.realm do
+    if state.credentials.realm do
       base
-      |> Params.put_attr(%Username{value: state.username})
-      |> Params.put_attr(%Realm{value: state.realm})
-      |> Params.put_attr(%Nonce{value: state.nonce})
+      |> Params.put_attr(%Username{value: state.credentials.username})
+      |> Params.put_attr(%Realm{value: state.credentials.realm})
+      |> Params.put_attr(%Nonce{value: state.credentials.nonce})
     else
       base
     end
@@ -198,8 +188,10 @@ defmodule Jerboa.Client.Protocol do
   @spec encode_request(Params.t, Worker.state) :: Worker.state
   defp encode_request(params, state) do
     opts =
-      if state.realm do
-        [secret: state.secret, realm: state.realm, username: state.username]
+      if state.credentials.realm do
+        [secret: state.credentials.secret,
+         realm: state.credentials.realm,
+         username: state.credentials.username]
       else
         []
       end
@@ -210,8 +202,10 @@ defmodule Jerboa.Client.Protocol do
   @spec decode_response(Worker.state) :: Params.t
   def decode_response(state) do
     opts =
-      if state.realm do
-        [secret: state.secret, realm: state.realm, username: state.username]
+      if state.credentials.realm do
+        [secret: state.credentials.secret,
+         realm: state.credentials.realm,
+         username: state.credentials.username]
       else
         []
       end
@@ -252,12 +246,13 @@ defmodule Jerboa.Client.Protocol do
     cond do
       is_nil error ->
         {:error, :bad_response}
-      error.name == :unauthorized && is_nil(state.realm) && realm_attr && nonce_attr ->
-        new_state = %{state | realm: realm_attr.value,
-                              nonce: nonce_attr.value}
+      error.name == :unauthorized && is_nil(state.credentials.realm) && realm_attr && nonce_attr ->
+        new_credentials = %{state.credentials | realm: realm_attr.value, nonce: nonce_attr.value}
+        new_state = %{state | credentials: new_credentials}
         {:retry, new_state}
       error.name == :stale_nonce && nonce_attr ->
-        new_state = %{state | nonce: nonce_attr.value}
+        new_credentials = %{state.credentials | nonce: nonce_attr.value}
+        new_state = %{state | credentials: new_credentials}
         {:retry, new_state}
       true ->
         {:error, error.name}
@@ -283,9 +278,9 @@ defmodule Jerboa.Client.Protocol do
     Params.new()
     |> Params.put_class(:request)
     |> Params.put_method(:refresh)
-    |> Params.put_attr(%Username{value: state.username})
-    |> Params.put_attr(%Realm{value: state.realm})
-    |> Params.put_attr(%Nonce{value: state.nonce})
+    |> Params.put_attr(%Username{value: state.credentials.username})
+    |> Params.put_attr(%Realm{value: state.credentials.realm})
+    |> Params.put_attr(%Nonce{value: state.credentials.nonce})
   end
 
   @spec handle_refresh_resp(Worker.state)
@@ -315,7 +310,8 @@ defmodule Jerboa.Client.Protocol do
       is_nil error ->
         {:error, :bad_response}
       error.name == :stale_nonce && nonce_attr ->
-        new_state = %{state | nonce: nonce_attr.value}
+        new_credentials = %{state.credentials | nonce: nonce_attr.value}
+        new_state = %{state | credentials: new_credentials}
         {:retry, new_state}
       true ->
         {:error, error.name}
@@ -328,9 +324,9 @@ defmodule Jerboa.Client.Protocol do
     Params.new()
     |> Params.put_class(:request)
     |> Params.put_method(:create_permission)
-    |> Params.put_attr(%Username{value: state.username})
-    |> Params.put_attr(%Realm{value: state.realm})
-    |> Params.put_attr(%Nonce{value: state.nonce})
+    |> Params.put_attr(%Username{value: state.credentials.username})
+    |> Params.put_attr(%Realm{value: state.credentials.realm})
+    |> Params.put_attr(%Nonce{value: state.credentials.nonce})
     |> Params.put_attrs(xor_peer_addrs)
   end
 
