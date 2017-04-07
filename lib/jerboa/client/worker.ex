@@ -6,30 +6,26 @@ defmodule Jerboa.Client.Worker do
   alias :gen_udp, as: UDP
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
+  alias Jerboa.Client.Relay
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.Transaction
 
   require Logger
 
-  defstruct [:server, :socket, :mapped_address, :relayed_address,
-             :lifetime, :lifetime_timer_ref, credentials: %Credentials{},
-             transaction: %Transaction{}, permissions: []]
+  defstruct [:server, :socket, :mapped_address, credentials: %Credentials{},
+             relay: %Relay{}, transaction: %Transaction{}]
 
   @default_retries 1
   @permission_expiry 5  * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
-  @type permission :: {peer_addr :: Client.ip, timer_red :: reference}
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
     transaction: Transaction.t,
     mapped_address: Client.address,
-    relayed_address: Client.address,
-    lifetime: non_neg_integer,
-    lifetime_timer_ref: reference,
-    permissions: [permission]
+    relay: Relay.t
   }
 
   @system_allocated_port 0
@@ -49,7 +45,7 @@ defmodule Jerboa.Client.Worker do
       server: opts[:server],
       credentials: %Credentials{
         username: opts[:username],
-        realm: opts[:realm]
+        secret: opts[:secret]
       }
     }
     setup_logger_metadata(state)
@@ -66,18 +62,18 @@ defmodule Jerboa.Client.Worker do
     {:reply, result, new_state}
   end
   def handle_call(:allocate, _, state) do
-    if state.relayed_address do
+    if state.relay.address do
       Logger.debug fn ->
         "Allocation already present on the server, allocate request blocked"
       end
-      {:reply, {:ok, state.relayed_address}, state}
+      {:reply, {:ok, state.relay.address}, state}
     else
       {result, new_state} = request_allocation(state, @default_retries)
       {:reply, result, new_state}
     end
   end
   def handle_call(:refresh, _, state) do
-    if state.relayed_address do
+    if state.relay.address do
       {result, new_state} = request_refresh(state, @default_retries)
       {:reply, result, new_state}
     else
@@ -88,7 +84,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call({:create_permission, peer_addrs}, _, state) do
-    if state.relayed_address do
+    if state.relay.address do
       {result, new_state} =
         request_permission(state, peer_addrs, @default_retries)
       {:reply, result, new_state}
@@ -109,10 +105,7 @@ defmodule Jerboa.Client.Worker do
 
   def handle_info(:allocation_expired, state) do
     Logger.debug fn -> "Allocation timed out" end
-    new_state = %{state | lifetime_timer_ref: nil,
-                          relayed_address: nil,
-                          lifetime: nil,
-                          permissions: []}
+    new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
   def handle_info({:permission_expired, peer_addr}, state) do
@@ -168,14 +161,15 @@ defmodule Jerboa.Client.Worker do
 
   @spec update_lifetime_timer(state) :: state
   defp update_lifetime_timer(state) do
-    timer_ref = state.lifetime_timer_ref
-    lifetime = state.lifetime
+    timer_ref = state.relay.timer_ref
+    lifetime = state.relay.lifetime
     if timer_ref do
       Process.cancel_timer timer_ref
     end
     if lifetime do
       new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
-      %{state | lifetime_timer_ref: new_ref}
+      relay = %{state.relay | timer_ref: new_ref}
+      %{state | relay: relay}
     else
       state
     end
@@ -241,7 +235,7 @@ defmodule Jerboa.Client.Worker do
   @spec remove_permissions(state, [Client.ip, ...]) :: state
   defp remove_permissions(state, peer_addrs) do
     {removed, remaining} =
-      Enum.split_with(state.permissions, fn {addr, _} -> addr in peer_addrs end)
+      Enum.split_with(state.relay.permissions, fn {addr, _} -> addr in peer_addrs end)
     for {_, timer_ref} <- removed do
       Process.cancel_timer timer_ref
     end
@@ -255,7 +249,8 @@ defmodule Jerboa.Client.Worker do
         timer_ref = Process.send_after self(),
           {:permission_expired, addr}, @permission_expiry
         {addr, timer_ref}
-      end
-    %{state | permissions: new_permissions ++ state.permissions}
+    end
+    relay = %{state.relay | permissions: new_permissions ++ state.relay.permissions}
+    %{state | relay: relay}
   end
 end

@@ -428,8 +428,8 @@ defmodule Jerboa.Client.ProtocolTest do
 
       assert {{:ok, {^address, ^port}}, new_state} = Protocol.eval_allocate_resp(state)
       assert new_state.mapped_address == {address, port}
-      assert new_state.relayed_address == {address, port}
-      assert new_state.lifetime == duration
+      assert new_state.relay.address == {address, port}
+      assert new_state.relay.lifetime == duration
     end
   end
 
@@ -597,7 +597,7 @@ defmodule Jerboa.Client.ProtocolTest do
       state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
 
       assert {:ok, new_state} = Protocol.eval_refresh_resp(state)
-      assert new_state.lifetime == duration
+      assert new_state.relay.lifetime == duration
     end
   end
 

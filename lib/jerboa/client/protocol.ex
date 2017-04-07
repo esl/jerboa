@@ -66,7 +66,7 @@ defmodule Jerboa.Client.Protocol do
   def eval_allocate_resp(state) do
     case handle_allocate_resp(state) do
       {:ok, new_state} ->
-        relayed_address = new_state.relayed_address
+        relayed_address = new_state.relay.address
         Logger.debug fn ->
           "Received success allocate reponse, relayed address: " <>
             Client.format_address(relayed_address)
@@ -225,9 +225,9 @@ defmodule Jerboa.Client.Protocol do
          %{duration: lifetime} <- Params.get_attr(params, Lifetime) do
       relayed_address = {raddr, rport}
       mapped_address = {maddr, mport}
-      new_state = %{state | relayed_address: relayed_address,
-                            mapped_address: mapped_address,
-                            lifetime: lifetime}
+      relay = %{state.relay | lifetime: lifetime, address: relayed_address}
+      new_state = %{state | relay: relay,
+                            mapped_address: mapped_address}
       {:ok, new_state}
     else
       :failure ->
@@ -291,7 +291,8 @@ defmodule Jerboa.Client.Protocol do
          :refresh <- Params.get_method(params),
          :success <- Params.get_class(params),
          %{duration: lifetime} <- Params.get_attr(params, Lifetime) do
-      new_state = %{state | lifetime: lifetime}
+      relay = %{state.relay | lifetime: lifetime}
+      new_state = %{state | relay: relay}
       {:ok, new_state}
     else
       :failure ->
