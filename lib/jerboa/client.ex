@@ -109,7 +109,12 @@ defmodule Jerboa.Client do
   """
   @spec allocate(t) :: {:ok, address} | {:error, error}
   def allocate(client) do
-    GenServer.call(client, :allocate)
+    call = fn -> GenServer.call(client, :allocate) end
+    case call.() do
+      {:error, :stale_nonce} -> call.()
+      {:error, :unauthorized} -> call.()
+      result -> result
+    end
   end
 
   @doc """
@@ -117,7 +122,11 @@ defmodule Jerboa.Client do
   """
   @spec refresh(t) :: :ok | {:error, error}
   def refresh(client) do
-    GenServer.call(client, :refresh)
+    call = fn -> GenServer.call(client, :refresh) end
+    case call.() do
+      {:error, :stale_nonce} -> call.()
+      result -> result
+    end
   end
 
   @doc """
@@ -147,7 +156,7 @@ defmodule Jerboa.Client do
     when error: :not_found | :simple_one_for_one
   def stop(client) do
     Supervisor.terminate_child(Client.Supervisor, client)
-    end
+  end
 
   @doc false
   @spec format_address(address) :: String.t

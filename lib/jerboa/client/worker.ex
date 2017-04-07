@@ -7,24 +7,24 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
+  alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
-  alias Jerboa.Client.Protocol.Transaction
+  alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh, CreatePermission}
+  alias Jerboa.Client.Transaction
 
   require Logger
 
-  defstruct [:server, :socket, :mapped_address, credentials: %Credentials{},
-             relay: %Relay{}, transaction: %Transaction{}]
+  defstruct [:server, :socket, credentials: %Credentials{},
+             relay: %Relay{}, transactions: []]
 
-  @default_retries 1
-  @permission_expiry 5  * 60 * 1_000 # 5 minutes
+  @permission_expiry 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
-    transaction: Transaction.t,
-    mapped_address: Client.address,
+    transactions: [Transaction.t],
     relay: Relay.t
   }
 
@@ -39,7 +39,7 @@ defmodule Jerboa.Client.Worker do
 
   def init(opts) do
     false = Process.flag(:trap_exit, true)
-    {:ok, socket} = UDP.open(@system_allocated_port, [:binary, active: false])
+    {:ok, socket} = UDP.open(@system_allocated_port, [:binary, active: true])
     state = %__MODULE__{
       socket: socket,
       server: opts[:server],
@@ -53,29 +53,34 @@ defmodule Jerboa.Client.Worker do
     {:ok, state}
   end
 
-  def handle_call(:bind, _, state) do
-    {result, new_state} =
-      state
-      |> Protocol.bind_req()
-      |> send_req()
-      |> Protocol.eval_bind_resp()
-    {:reply, result, new_state}
+  def handle_call(:bind, from, state) do
+    {id, request} = Binding.request()
+    Logger.debug fn -> "Sending binding request to the server" end
+    send(request, state.server, state.socket)
+    transaction = Transaction.new(from, id, binding_response_handler())
+    {:noreply, add_transaction(state, transaction)}
   end
-  def handle_call(:allocate, _, state) do
+  def handle_call(:allocate, from, state) do
     if state.relay.address do
       Logger.debug fn ->
         "Allocation already present on the server, allocate request blocked"
       end
       {:reply, {:ok, state.relay.address}, state}
     else
-      {result, new_state} = request_allocation(state, @default_retries)
-      {:reply, result, new_state}
+      {id, request} = Allocate.request(state.credentials)
+      Logger.debug fn -> "Sending allocate request to the server" end
+      send(request, state.server, state.socket)
+      transaction = Transaction.new(from, id, allocate_response_handler())
+      {:noreply, add_transaction(state, transaction)}
     end
   end
-  def handle_call(:refresh, _, state) do
+  def handle_call(:refresh, from, state) do
     if state.relay.address do
-      {result, new_state} = request_refresh(state, @default_retries)
-      {:reply, result, new_state}
+      {id, request} = Refresh.request(state.credentials)
+      Logger.debug fn -> "Sending refresh request to the server" end
+      send(request, state.server, state.socket)
+      transaction = Transaction.new(from, id, refresh_response_handler())
+      {:noreply, add_transaction(state, transaction)}
     else
       Logger.debug fn ->
         "No allocation present on the server, refresh request blocked"
@@ -83,11 +88,14 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_allocation}, state}
     end
   end
-  def handle_call({:create_permission, peer_addrs}, _, state) do
+  def handle_call({:create_permission, peer_addrs}, from, state) do
     if state.relay.address do
-      {result, new_state} =
-        request_permission(state, peer_addrs, @default_retries)
-      {:reply, result, new_state}
+      {id, request} = CreatePermission.request(state.credentials, peer_addrs)
+      send(request, state.server, state.socket)
+      transaction = Transaction.new(from, id, create_perm_response_handler())
+      new_relay = state.relay |> add_permissions(peer_addrs, id)
+      new_state = %{state | relay: new_relay} |> add_transaction(transaction)
+      {:noreply, new_state}
     else
       Logger.debug fn ->
         "No allocation present on the server, create permission request blocked"
@@ -97,124 +105,59 @@ defmodule Jerboa.Client.Worker do
   end
 
   def handle_cast(:persist, state) do
-    state
-    |> Protocol.bind_ind()
-    |> send_ind()
+    indication = Binding.indication()
+    Logger.debug fn -> "Sending binding indication to the server" end
+    send(indication, state.server, state.socket)
     {:noreply, state}
   end
 
   def handle_info(:allocation_expired, state) do
     Logger.debug fn -> "Allocation timed out" end
+    cancel_permission_timers(state.relay)
     new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
   def handle_info({:permission_expired, peer_addr}, state) do
     Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
-    {:noreply, remove_permissions(state, [peer_addr])}
+    new_relay = state.relay |> remove_permission(peer_addr)
+    {:noreply, %{state | relay: new_relay}}
+  end
+  def handle_info({:udp, socket, addr, port, packet},
+    %{socket: socket, server: {addr, port}} = state) do
+    params = Protocol.decode!(packet, state.credentials)
+    new_state =
+      case find_transaction(state, params.identifier) do
+        nil ->
+          state
+        transaction ->
+          state = handle_response(state, params, transaction)
+          new_transactions =
+            Enum.filter state.transactions, fn t ->
+              t.id != transaction.id
+            end
+          %{state | transactions: new_transactions}
+      end
+    {:noreply, new_state}
   end
 
   def terminate(_, state) do
-    :ok = UDP.close(socket(state))
+    :ok = UDP.close(state.socket)
   end
 
   ## Internals
 
-  defp server(%{server: server}), do: server
-
-  defp socket(%{socket: socket}), do: socket
-
-  @spec send_req(state) :: state
-  defp send_req(%{transaction: %{req: req} = transaction} = state) do
-    socket = socket(state)
-    {address, port} = server(state)
-    :ok = UDP.send(socket, address, port, req)
-    {:ok, {^address, ^port, response}} = UDP.recv(socket, 0)
-    %{state | transaction: %{transaction | resp: response}}
+  @spec send(packet :: binary, server :: Client.address, socket) :: state
+  defp send(packet, server, socket) do
+    {address, port} = server
+    :ok = UDP.send(socket, address, port, packet)
   end
 
-  @spec send_ind(state) :: :ok
-  defp send_ind(%{transaction: %{req: msg}} = state) do
-    socket = socket(state)
-    {address, port} = server(state)
-    :ok = UDP.send(socket, address, port, msg)
-  end
-
-  @spec request_allocation(state, retries_left :: pos_integer)
-    :: {result :: term, state}
-  defp request_allocation(state, retries_left) do
-    {result, new_state} =
-      state
-      |> Protocol.allocate_req()
-      |> send_req()
-      |> Protocol.eval_allocate_resp()
-    with :retry <- result,
-         n when n > 0 <- retries_left do
-      Logger.debug fn -> "Received error allocate response, retrying.." end
-      request_allocation(new_state, n - 1)
-    else
-      {:ok, _} ->
-        {result, update_lifetime_timer(new_state)}
-      _ ->
-        {result, new_state}
-    end
-  end
-
-  @spec update_lifetime_timer(state) :: state
-  defp update_lifetime_timer(state) do
-    timer_ref = state.relay.timer_ref
-    lifetime = state.relay.lifetime
-    if timer_ref do
-      Process.cancel_timer timer_ref
-    end
-    if lifetime do
-      new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
-      relay = %{state.relay | timer_ref: new_ref}
-      %{state | relay: relay}
-    else
-      state
-    end
-  end
-
-  @spec request_refresh(state, retries_left :: pos_integer)
-    :: {result :: term, state}
-  defp request_refresh(state, retries_left) do
-    {result, new_state} =
-      state
-      |> Protocol.refresh_req()
-      |> send_req()
-      |> Protocol.eval_refresh_resp()
-    with :retry <- result,
-         n when n > 0 <- retries_left do
-      Logger.debug fn -> "Received error refresh response, retrying.." end
-      request_refresh(new_state, n - 1)
-    else
-      :ok ->
-        {result, update_lifetime_timer(new_state)}
-      _ ->
-        {result, new_state}
-    end
-  end
-
-  @spec request_permission(state, peers :: [Client.ip, ...],
-    retries_left :: pos_integer) :: {result :: term, state}
-  def request_permission(state, peer_addrs, retries_left) do
-    {result, new_state} =
-      state
-      |> Protocol.create_perm_req(peer_addrs)
-      |> send_req()
-      |> Protocol.eval_create_perm_resp()
-    with :retry <- result,
-         n when n > 0 <- retries_left do
-      Logger.debug fn ->
-        "Received error create permission response, retrying.."
-      end
-      request_permission(new_state, peer_addrs, n - 1)
-    else
-      :ok ->
-        {result, update_permissions(new_state, peer_addrs)}
-      _ ->
-        {result, new_state}
-    end
+  @spec handle_response(state, Params.t, Transaction.t) :: state
+  defp handle_response(state, params, transaction) do
+    handler = transaction.handler
+    {reply, creds, relay} = handler.(params, state.credentials, state.relay)
+    GenServer.reply(transaction.caller, reply)
+    %{state | credentials: creds, relay: relay}
   end
 
   @spec setup_logger_metadata(state) :: any
@@ -225,32 +168,157 @@ defmodule Jerboa.Client.Worker do
     Logger.metadata(metadata)
   end
 
-  @spec update_permissions(state, [Client.ip, ...]) :: state
-  defp update_permissions(state, peer_addrs) do
-    state
-    |> remove_permissions(peer_addrs)
-    |> add_permissions(peer_addrs)
-  end
-
-  @spec remove_permissions(state, [Client.ip, ...]) :: state
-  defp remove_permissions(state, peer_addrs) do
-    {removed, remaining} =
-      Enum.split_with(state.relay.permissions, fn {addr, _} -> addr in peer_addrs end)
-    for {_, timer_ref} <- removed do
+  @spec update_allocation_timer(Relay.t) :: Relay.t
+  defp update_allocation_timer(relay) do
+    timer_ref = relay.timer_ref
+    lifetime = relay.lifetime
+    if timer_ref do
       Process.cancel_timer timer_ref
     end
-    %{state | permissions: remaining}
+    if lifetime do
+      new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
+      %{relay | timer_ref: new_ref}
+    else
+      relay
+    end
   end
 
-  @spec add_permissions(state, [Client.ip, ...]) :: state
-  defp add_permissions(state, peer_addrs) do
-    new_permissions =
-      Enum.map peer_addrs, fn addr ->
-        timer_ref = Process.send_after self(),
-          {:permission_expired, addr}, @permission_expiry
-        {addr, timer_ref}
+  ## Transactions
+
+  @spec add_transaction(state, Transaction.t) :: state
+  defp add_transaction(state, t) do
+    %{state | transactions: [t | state.transactions]}
+  end
+
+  @spec find_transaction(state, id :: binary) :: Transaction.t | nil
+  defp find_transaction(state, id) do
+    Enum.find(state.transactions, fn t -> t.id == id end)
+  end
+
+  ## Transaction handlers
+
+  @spec binding_response_handler :: Transaction.handler
+  defp binding_response_handler do
+    fn params, creds, relay ->
+      reply = Binding.eval_response(params)
+      {reply, creds, relay}
     end
-    relay = %{state.relay | permissions: new_permissions ++ state.relay.permissions}
-    %{state | relay: relay}
+  end
+
+  @spec allocate_response_handler :: Transaction.handler
+  defp allocate_response_handler do
+    fn params, creds, relay ->
+      case Allocate.eval_response(params, creds) do
+        {:ok, relayed_address, lifetime} ->
+          Logger.debug fn ->
+            "Received success allocate reponse, relayed address: " <>
+              Client.format_address(relayed_address)
+          end
+          new_relay =
+            relay
+            |> Map.put(:address, relayed_address)
+            |> Map.put(:lifetime, lifetime)
+            |> update_allocation_timer()
+          reply = {:ok, relayed_address}
+          {reply, creds, new_relay}
+        {:error, reason, new_creds} ->
+          Logger.debug fn ->
+            "Error when receiving allocate response, reason: #{inspect reason}"
+          end
+          reply = {:error, reason}
+          {reply, new_creds, relay}
+      end
+    end
+  end
+
+  @spec refresh_response_handler :: Transaction.handler
+  defp refresh_response_handler do
+    fn params, creds, relay ->
+      case Refresh.eval_response(params, creds) do
+        {:ok, lifetime} ->
+          Logger.debug fn ->
+            "Received success refresh reponse, new lifetime: " <>
+              "#{lifetime}"
+          end
+          new_relay =
+            relay
+            |> Map.put(:lifetime, lifetime)
+            |> update_allocation_timer()
+          {:ok, creds, new_relay}
+        {:error, reason, new_creds} ->
+          Logger.debug fn ->
+            "Error when receiving refresh response, reason: #{inspect reason}"
+          end
+          reply = {:error, reason}
+          {reply, new_creds, relay}
+      end
+    end
+  end
+
+  @spec create_perm_response_handler :: Transaction.handler
+  def create_perm_response_handler do
+    fn params, creds, relay ->
+      case CreatePermission.eval_response(params, creds) do
+        :ok ->
+          Logger.debug fn ->
+            "Received success create permission reponse"
+          end
+          new_relay =
+            relay
+            |> update_permissions(params.identifier)
+          {:ok, creds, new_relay}
+        {:error, reason, new_creds} ->
+          Logger.debug fn ->
+            "Error when receiving create permission response, " <>
+              "reason: #{inspect reason}"
+          end
+          reply = {:error, reason}
+          {reply,  new_creds, relay}
+      end
+    end
+  end
+
+  @spec update_permissions(Relay.t, transaction_id :: binary) :: Relay.t
+  defp update_permissions(relay, transaction_id) do
+    new_perms =
+      relay.permissions
+      |> Enum.map(fn p -> update_permission(p, transaction_id) end)
+    %{relay | permissions: new_perms}
+  end
+
+  @spec update_permission(Permission.t, transaction_id :: binary)
+    :: Permission.t
+  def update_permission(%{transaction_id: transaction_id} = perm,
+    transaction_id) do
+    if perm.acked?, do: Process.cancel_timer perm.timer_ref
+    timer_ref = Process.send_after self(),
+      {:permission_expired, perm.peer_address}, @permission_expiry
+    %Permission{perm | acked?: true, timer_ref: timer_ref}
+  end
+  def update_permission(perm, _), do: perm
+
+  @spec remove_permission(Relay.t, Client.ip) :: Relay.t
+  defp remove_permission(relay, peer_addr) do
+    {_, remaining} =
+      Enum.split_with(relay.permissions,
+        fn perm -> perm.peer_address == peer_addr end)
+    %{relay | permissions: remaining}
+  end
+
+  @spec add_permissions(Relay.t, [Client.ip, ...], transaction_id :: binary)
+    :: Relay.t
+  defp add_permissions(relay, peer_addrs, transaction_id) do
+    new_permissions =
+        Enum.map peer_addrs, fn addr ->
+        %Permission{peer_address: addr, transaction_id: transaction_id,
+                    acked?: false}
+      end
+    %{relay | permissions: new_permissions ++ relay.permissions}
+  end
+
+  @spec cancel_permission_timers(Relay.t) :: any
+  defp cancel_permission_timers(relay) do
+    relay.permissions
+    |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
   end
 end
