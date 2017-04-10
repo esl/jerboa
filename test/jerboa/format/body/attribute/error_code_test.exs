@@ -6,8 +6,6 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
   alias Jerboa.Format.ErrorCode.{FormatError, LengthError}
   alias Jerboa.Format.Meta
 
-  @moduletag :now
-
   describe "encode/1" do
     test "ERROR-CODE attribute with valid error code and reason" do
       ptest reason: string(max: ErrorCode.max_reason_length) do

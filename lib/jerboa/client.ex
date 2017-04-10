@@ -145,7 +145,11 @@ defmodule Jerboa.Client do
   @spec create_permission(t, peers :: ip | [ip, ...]) :: :ok | {:error, error}
   def create_permission(_client, []), do: :ok
   def create_permission(client, peers) when is_list(peers) do
-    GenServer.call(client, {:create_permission, peers})
+    call = fn -> GenServer.call(client, {:create_permission, peers}) end
+    case call.() do
+      {:error, :stale_nonce} -> call.()
+      result -> result
+    end
   end
   def create_permission(client, peer), do: create_permission(client, [peer])
 

@@ -50,6 +50,8 @@ defmodule Jerboa.Client.Protocol do
       error.name == :stale_nonce && nonce_attr ->
         new_creds = %{creds | nonce: nonce_attr.value}
         {:error, error.name, new_creds}
+      error.name == :stale_nonce ->
+        {:error, :bad_response, creds}
       true ->
         {:error, error.name, creds}
     end

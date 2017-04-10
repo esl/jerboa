@@ -1,738 +1,116 @@
 defmodule Jerboa.Client.ProtocolTest do
   use ExUnit.Case
 
+  alias Jerboa.{Params, Format}
   alias Jerboa.Client.Protocol
-  alias Jerboa.Client.Protocol.Transaction
-  alias Jerboa.Client.Worker
-  alias Jerboa.Client.Credentials
-  alias Jerboa.Params
-  alias Jerboa.Format
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, RequestedTransport,
-                                      Username, Realm, Nonce, XORRelayedAddress,
-                                      Lifetime, ErrorCode, XORPeerAddress}
+  alias Jerboa.Format.Body.Attribute.{Nonce, ErrorCode}
+  alias Jerboa.Test.Helper.Params, as: PH
+  alias Jerboa.Test.Helper.Credentials, as: CH
 
-  @moduletag :now
-
-  test "bind_req/1 retuns encoded binding request" do
-    %{transaction: %{req: msg}} = Protocol.bind_req(%Worker{})
-
-    params = msg |> Format.decode!()
-
-    assert Params.get_class(params) == :request
-    assert Params.get_method(params) == :binding
-    assert Params.get_attrs(params) == []
-  end
-
-  test "bind_ind/1 returns encoded binding indication" do
-    %{transaction: %{req: msg}} = Protocol.bind_ind(%Worker{})
-
-    params = msg |> Format.decode!()
-
-    assert Params.get_class(params) == :indication
-    assert Params.get_method(params) == :binding
-    assert Params.get_attrs(params) == []
-  end
-
-  describe "eval_bind_resp/2" do
-    test "returns mapped address given worker state with valid response" do
-      address = {0, 0, 0, 0}
-      port = 0
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      resp_params =
+  describe "encode_request/2" do
+    test "signs params if given credentials are complete" do
+      creds = CH.valid_creds()
+      params =
         Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:binding)
-        |> Params.put_attr(mapped_address)
-      t_id = resp_params.identifier
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:ok, {^address, ^port}}, new_state} =
-        Protocol.eval_bind_resp(state)
-      assert new_state.transaction == %Transaction{}
-    end
-
-    test "returns error on error response" do
-      address = {0, 0, 0, 0}
-      port = 0
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:binding)
-        |> Params.put_attr(mapped_address)
-      t_id = resp_params.identifier
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:error, _}, _} = Protocol.eval_bind_resp(state)
-    end
-
-    test "returns error on invalid transaction id" do
-      address = {0, 0, 0, 0}
-      port = 0
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:binding)
-        |> Params.put_attr(mapped_address)
-      t_id = Params.generate_id()
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:error, _}, _} = Protocol.eval_bind_resp(state)
-    end
-
-    test "returns error on invalid STUN method" do
-      address = {0, 0, 0, 0}
-      port = 0
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
+        |> Params.put_class(:request)
         |> Params.put_method(:allocate)
-        |> Params.put_attr(mapped_address)
-      t_id = resp_params.identifier
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
 
-      assert {{:error, _}, _} = Protocol.eval_bind_resp(state)
+      {id, request} = Protocol.encode_request(params, creds)
+      decoded = Format.decode!(request, secret: creds.secret,
+        username: creds.username, realm: creds.realm)
+
+      assert id == params.identifier
+      assert decoded.signed?
+      assert decoded.verified?
     end
 
-    test "returns error on message without XOR-MAPPED-ADDRESS" do
-      resp_params =
+    test "does not sign params if credentials are not complete" do
+      creds = CH.incomplete_creds()
+      params =
         Params.new()
-        |> Params.put_class(:success)
+        |> Params.put_class(:request)
         |> Params.put_method(:allocate)
-      t_id = resp_params.identifier
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
 
-      assert {{:error, _}, _} = Protocol.eval_bind_resp(state)
+      {id, request} = Protocol.encode_request(params, creds)
+      decoded = Format.decode!(request, secret: creds.secret,
+        username: creds.username, realm: creds.realm)
+
+      assert id == params.identifier
+      refute decoded.signed?
+      refute decoded.verified?
     end
   end
 
-  describe "allocate_req/1" do
-    test "returns unsigned message if credentials are not known yet" do
-      state = %Worker{}
+  describe "base_params/1" do
+    test "returns params with credentials if credentials are complete" do
+      creds = CH.valid_creds()
 
-      %{transaction: %{req: msg}} = state |> Protocol.allocate_req()
-      params = Format.decode!(msg)
+      params = Protocol.base_params(creds)
 
-      assert :request == Params.get_class(params)
-      assert :allocate == Params.get_method(params)
-      assert %RequestedTransport{protocol: :udp} ==
-        Params.get_attr(params, RequestedTransport)
+      assert PH.username(params) == creds.username
+      assert PH.realm(params) == creds.realm
+      assert PH.nonce(params) == creds.nonce
     end
 
-    test "returns signed message if credentials are known" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      credentials = %Credentials{username: username, realm: realm, secret: secret, nonce: nonce}
-      state = %Worker{credentials: credentials}
+    test "returns params without credentials if credentials are not complete" do
+      creds = CH.incomplete_creds()
 
-      %{transaction: %{req: msg}} = state |> Protocol.allocate_req()
-      params = Format.decode!(msg, secret: secret)
+      params = Protocol.base_params(creds)
 
-      assert :request == Params.get_class(params)
-      assert :allocate == Params.get_method(params)
-      assert %RequestedTransport{protocol: :udp} ==
-        Params.get_attr(params, RequestedTransport)
-      assert %Username{value: username} == Params.get_attr(params, Username)
-      assert %Realm{value: realm} == Params.get_attr(params, Realm)
-      assert %Nonce{value: nonce} == Params.get_attr(params, Nonce)
+      refute PH.username(params)
+      refute PH.realm(params)
+      refute PH.nonce(params)
     end
   end
 
-  describe "eval_allocate_resp/1" do
-    test "returns error on response with wrong method" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:binding)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-      t_id = resp_params.identifier
+  describe "eval_failure/2" do
+    test "returns :bad_response given params without error code" do
+      creds = CH.valid_creds()
+      params = Params.new() |> Params.put_class(:failure)
 
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
+      assert {:error, :bad_response, creds} ==
+        Protocol.eval_failure(params, creds)
     end
 
-    test "returns error on response with invalid transaction id" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-      t_id = Params.generate_id()
-
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns error on response without XOR-RELAYED-ADDRESS" do
-      address = {0, 0, 0, 0}
-      port = 0
-      duration = 600
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      lifetime = %Lifetime{duration: duration}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(mapped_address)
-        |> Params.put_attr(lifetime)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns error on response without XOR-MAPPED-ADDRESS" do
-      address = {0, 0, 0, 0}
-      port = 0
-      duration = 600
-      relayed_address = %XORRelayedAddress{address: address, port: port,
-                                           family: :ipv4}
-      lifetime = %Lifetime{duration: duration}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(relayed_address)
-        |> Params.put_attr(lifetime)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns error on response without LIFETIME" do
-      address = {0, 0, 0, 0}
-      port = 0
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      relayed_address = %XORRelayedAddress{address: address, port: port,
-                                           family: :ipv4}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(relayed_address)
-        |> Params.put_attr(mapped_address)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns error on IPv6 XOR-RELAYED-ADDRESS" do
-      ipv4_address = {0, 0, 0, 0}
-      ipv6_address = {0, 0, 0, 0, 0, 0, 0, 0}
-      port = 0
-      duration = 600
-      mapped_address = %XORMappedAddress{address: ipv4_address, port: port,
-                                         family: :ipv4}
-      relayed_address = %XORRelayedAddress{address: ipv6_address, port: port,
-                                           family: :ipv6}
-      lifetime = %Lifetime{duration: duration}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(mapped_address)
-        |> Params.put_attr(relayed_address)
-        |> Params.put_attr(lifetime)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns error on IPv6 XOR-MAPPED-ADDRESS" do
-      ipv4_address = {0, 0, 0, 0}
-      ipv6_address = {0, 0, 0, 0, 0, 0, 0, 0}
-      port = 0
-      duration = 600
-      mapped_address = %XORMappedAddress{address: ipv6_address, port: port,
-                                         family: :ipv6}
-      relayed_address = %XORRelayedAddress{address: ipv4_address, port: port,
-                                           family: :ipv4}
-      lifetime = %Lifetime{duration: duration}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(mapped_address)
-        |> Params.put_attr(relayed_address)
-        |> Params.put_attr(lifetime)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns :retry and updates nonce if error response is :stale_nonce" do
-      realm = "wonderland"
-      old_nonce = "dcba"
+    test "returns credentials with updated nonce if error reason is :stale_nonce" do
       new_nonce = "abcd"
-      resp_params =
+      old_nonce = CH.invalid_nonce()
+      creds = CH.valid_creds() |> Map.put(:nonce, old_nonce)
+      params =
         Params.new()
         |> Params.put_class(:failure)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: new_nonce})
         |> Params.put_attr(%ErrorCode{name: :stale_nonce})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{nonce: old_nonce}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {:retry, new_state} = Protocol.eval_allocate_resp(state)
-      assert new_state.credentials.nonce == new_nonce
-    end
-
-    test "returns :retry and updates realm and nonce if error response is :unauthorized" do
-      realm = "wonderland"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(%ErrorCode{name: :unauthorized})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {:retry, new_state} = Protocol.eval_allocate_resp(state)
-      assert new_state.credentials.nonce == nonce
-      assert new_state.credentials.realm == realm
-    end
-
-    test "returns error if error response doesn't have error code attribute" do
-      realm = "wonderland"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_allocate_resp(state)
-    end
-
-    test "returns relayed address on valid allocate response" do
-      address = {0, 0, 0, 0}
-      port = 0
-      duration = 600
-      mapped_address = %XORMappedAddress{address: address, port: port,
-                                         family: :ipv4}
-      relayed_address = %XORRelayedAddress{address: address, port: port,
-                                           family: :ipv4}
-      lifetime = %Lifetime{duration: duration}
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:allocate)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(mapped_address)
-        |> Params.put_attr(relayed_address)
-        |> Params.put_attr(lifetime)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:ok, {^address, ^port}}, new_state} = Protocol.eval_allocate_resp(state)
-      assert new_state.mapped_address == {address, port}
-      assert new_state.relay.address == {address, port}
-      assert new_state.relay.lifetime == duration
-    end
-  end
-
-  test "refresh_req/1 returns encoded refresh request" do
-    username = "alice"
-    realm = "wonderland"
-    secret = "1234"
-    nonce = "abcd"
-    credentials = %Credentials{username: username, realm: realm, secret: secret,
-                 nonce: nonce}
-    state = %Worker{credentials: credentials}
-
-    %{transaction: %{req: msg}} = state |> Protocol.refresh_req()
-    params = msg |> Format.decode!(secret: secret)
-
-    assert Params.get_class(params) == :request
-    assert Params.get_method(params) == :refresh
-    assert Params.get_attr(params, Realm) == %Realm{value: realm}
-    assert Params.get_attr(params, Username) == %Username{value: username}
-    assert Params.get_attr(params, Nonce) == %Nonce{value: nonce}
-  end
-
-  describe "eval_refresh_resp/1" do
-    test "returns error when response method is invalid" do
-      duration = 600
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:binding)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(%Lifetime{duration: duration})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
-    end
-
-    test "returns error on response without LIFETIME" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
-    end
-
-    test "returns error on failure response without error code" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
-    end
-
-    test "returns error on response with invalid transaction id" do
-      duration = 600
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(%Lifetime{duration: duration})
-      t_id = Params.generate_id()
-
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_refresh_resp(state)
-    end
-
-    test "returns :retry if error reason is :stale_nonce" do
-      realm = "wonderland"
-      old_nonce = "dcba"
-      new_nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
         |> Params.put_attr(%Nonce{value: new_nonce})
-        |> Params.put_attr(%ErrorCode{name: :stale_nonce})
-      t_id = resp_params.identifier
 
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{nonce: old_nonce}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
+      result = Protocol.eval_failure(params, creds)
 
-      assert {:retry, new_state} = Protocol.eval_refresh_resp(state)
-      assert new_state.credentials.nonce == new_nonce
+      assert {:error, :stale_nonce, new_creds} = result
+      assert %{creds | nonce: new_nonce} == new_creds
     end
 
-    test "returns error if error reason is different than :stale_nonce" do
-      error = :try_alternate
-      realm = "wonderland"
-      nonce = "abcd"
-      resp_params =
+    test "returns :bad_response on :stale_nonce error without nonce attribute" do
+      creds = CH.valid_creds()
+
+      params =
         Params.new()
         |> Params.put_class(:failure)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
+        |> Params.put_attr(%ErrorCode{name: :stale_nonce})
+
+      assert {:error, :bad_response, creds} ==
+        Protocol.eval_failure(params, creds)
+    end
+
+    test "returns error name of error included in params" do
+      creds = CH.valid_creds()
+      error = :allocation_mismatch
+
+      params =
+        Params.new()
+        |> Params.put_class(:failure)
         |> Params.put_attr(%ErrorCode{name: error})
-      t_id = resp_params.identifier
 
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:error, ^error}, _} = Protocol.eval_refresh_resp(state)
-    end
-
-    test "returns :ok on valid lifetime response" do
-      duration = 600
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:refresh)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: nonce})
-        |> Params.put_attr(%Lifetime{duration: duration})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {:ok, new_state} = Protocol.eval_refresh_resp(state)
-      assert new_state.relay.lifetime == duration
-    end
-  end
-
-  test "create_perm_req/2 returns encoded create permission request" do
-    peer_addr1 = {0, 0, 0, 0}
-    peer_addr2 = {1, 1, 1, 1}
-    username = "alice"
-    realm = "wonderland"
-    secret = "1234"
-    nonce = "abcd"
-    credentials = %Credentials{username: username, realm: realm, secret: secret,
-                 nonce: nonce}
-    state = %Worker{credentials: credentials}
-
-    %{transaction: %{req: msg}} =
-      state
-      |> Protocol.create_perm_req([peer_addr1, peer_addr2])
-    params = msg |> Format.decode!(secret: secret)
-    peer_addrs =
-      params
-      |> Params.get_attrs(XORPeerAddress)
-      |> Enum.map(fn xpa -> xpa.address end)
-
-    assert Params.get_class(params) == :request
-    assert Params.get_method(params) == :create_permission
-    assert Params.get_attr(params, Realm) == %Realm{value: realm}
-    assert Params.get_attr(params, Username) == %Username{value: username}
-    assert Params.get_attr(params, Nonce) == %Nonce{value: nonce}
-    assert peer_addr1 in peer_addrs
-    assert peer_addr2 in peer_addrs
-  end
-
-  describe "eval_create_perm_resp/1" do
-    test "returns error when response method is invalid" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:binding)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
-    end
-
-    test "returns error on failure response without error code" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:create_permission)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
-    end
-
-    test "returns error on response with invalid transaction id" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:refresh)
-      t_id = Params.generate_id()
-
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {{:error, :bad_response}, _} = Protocol.eval_create_perm_resp(state)
-    end
-
-    test "returns :retry if error reason is :stale_nonce" do
-      realm = "wonderland"
-      old_nonce = "dcba"
-      new_nonce = "abcd"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:create_permission)
-        |> Params.put_attr(%Realm{value: realm})
-        |> Params.put_attr(%Nonce{value: new_nonce})
-        |> Params.put_attr(%ErrorCode{name: :stale_nonce})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params)
-      credentials = %Credentials{nonce: old_nonce}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {:retry, new_state} = Protocol.eval_create_perm_resp(state)
-      assert new_state.credentials.nonce == new_nonce
-    end
-
-    test "returns error if error reason is different than :stale_nonce" do
-      error = :try_alternate
-      resp_params =
-        Params.new()
-        |> Params.put_class(:failure)
-        |> Params.put_method(:create_permission)
-        |> Params.put_attr(%ErrorCode{name: error})
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params)
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}}
-
-      assert {{:error, ^error}, _} = Protocol.eval_create_perm_resp(state)
-    end
-
-    test "returns :ok on valid create permission response" do
-      username = "alice"
-      realm = "wonderland"
-      secret = "1234"
-      resp_params =
-        Params.new()
-        |> Params.put_class(:success)
-        |> Params.put_method(:create_permission)
-      t_id = resp_params.identifier
-
-      resp = Format.encode(resp_params, secret: secret, username: username, realm: realm)
-      credentials = %Credentials{username: username, realm: realm, secret: secret}
-      state = %Worker{transaction: %Transaction{id: t_id, resp: resp}, credentials: credentials}
-
-      assert {:ok, _} = Protocol.eval_create_perm_resp(state)
+      assert {:error, error, creds} ==
+        Protocol.eval_failure(params, creds)
     end
   end
 end
