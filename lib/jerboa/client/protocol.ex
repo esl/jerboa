@@ -14,7 +14,7 @@ defmodule Jerboa.Client.Protocol do
 
   ## API
 
-  @spec encode_request(Params.t, Crendetials.t) :: request
+  @spec encode_request(Params.t, Credentials.t) :: request
   def encode_request(params, creds) do
     opts = Credentials.to_decode_opts(creds)
     {params.identifier, Format.encode(params, opts)}

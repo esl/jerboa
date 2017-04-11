@@ -2,6 +2,7 @@ defmodule Jerboa.Client.Transaction do
   @moduledoc false
   ## Describes transaction to be sent and handled in the future
 
+  alias Jerboa.Params
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
 
@@ -18,7 +19,7 @@ defmodule Jerboa.Client.Transaction do
     handler: handler
   }
 
-  @spec new(caller, id, handler) :: Transaction.t
+  @spec new(caller, id, handler) :: t
   def new(caller, id, handler) do
     %__MODULE__{caller: caller, id: id, handler: handler}
   end

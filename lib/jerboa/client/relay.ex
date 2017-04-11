@@ -2,6 +2,7 @@ defmodule Jerboa.Client.Relay do
   @moduledoc false
   ## Data structure describing relay (allocation)
 
+  alias Jerboa.Client
   alias Jerboa.Client.Relay.Permission
 
   defstruct [:address, :lifetime, :timer_ref, permissions: []]

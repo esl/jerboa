@@ -4,6 +4,7 @@ defmodule Jerboa.Client.Worker do
   use GenServer
 
   alias :gen_udp, as: UDP
+  alias Jerboa.Params
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
