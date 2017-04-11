@@ -94,6 +94,32 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCodeTest do
     end
   end
 
+  describe "new/1" do
+    test "returns filled in struct given valid error code" do
+      code = 400
+
+      assert %ErrorCode{name: :bad_request, code: code} == ErrorCode.new(code)
+    end
+
+    test "returns filled in struct given valid error name" do
+      name = :bad_request
+
+      assert %ErrorCode{name: name, code: 400} == ErrorCode.new(name)
+    end
+
+    test "raises on invalid error code" do
+      assert_raise FunctionClauseError, fn ->
+        ErrorCode.new(801)
+      end
+    end
+
+    test "raises on invalid error name" do
+      assert_raise FunctionClauseError, fn ->
+        ErrorCode.new(:not_a_valid_error)
+      end
+    end
+  end
+
   defp binary_attr(code, reason) do
     <<0::21, class(code)::3, number(code)::8, reason::binary>>
   end
