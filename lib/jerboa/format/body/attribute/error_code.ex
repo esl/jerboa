@@ -57,6 +57,15 @@ defmodule Jerboa.Format.Body.Attribute.ErrorCode do
 
   @max_reason_length 128
 
+  @spec new(name | code) :: t
+  def new(code_or_name)
+  def new(code) when code in @valid_codes do
+    %__MODULE__{code: code, name: code_to_name(code)}
+  end
+  def new(name) when name in @valid_names do
+    %__MODULE__{name: name, code: name_to_code(name)}
+  end
+
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.ErrorCode
     @type_code 0x0009
