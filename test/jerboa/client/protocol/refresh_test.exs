@@ -9,7 +9,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
   alias Jerboa.Format.Body.Attribute.{Lifetime, Nonce, ErrorCode}
 
   test "request/1 returns valid refresh request signed with credentials" do
-    creds = CH.valid_creds()
+    creds = CH.final()
 
     {id, request} = Refresh.request(creds)
     params = Protocol.decode!(request, creds)
@@ -26,7 +26,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
 
   describe "eval_response/2" do
     test "returns new lifetime on successful refresh response" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       lifetime = 600
 
       params =
@@ -39,7 +39,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
     end
 
     test "returns :bad_response on invalid STUN method" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       lifetime = 600
 
       params =
@@ -53,7 +53,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
     end
 
     test "returns :bad_response without LIFETIME" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -65,7 +65,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
     end
 
     test "returns :bad_response on failure without ERROR-CODE" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -77,7 +77,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
     end
 
     test "returns creds with updated nonce on :stale_nonce error" do
-      creds = CH.valid_creds() |> Map.put(:nonce, "I'm expired")
+      creds = CH.final() |> Map.put(:nonce, "I'm expired")
       new_nonce = CH.valid_nonce()
 
       params =
@@ -92,7 +92,7 @@ defmodule Jerboa.Client.Protocol.RefreshTest do
     end
 
     test "returns unchanged creds and error name on other errors" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       error = :allocation_quota_reached
 
       params =

@@ -44,10 +44,7 @@ defmodule Jerboa.Client.Worker do
     state = %__MODULE__{
       socket: socket,
       server: opts[:server],
-      credentials: %Credentials{
-        username: opts[:username],
-        secret: opts[:secret]
-      }
+      credentials: Credentials.initial(opts[:username], opts[:secret])
     }
     setup_logger_metadata(state)
     Logger.debug fn -> "Initialized client" end

@@ -12,7 +12,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
   @moduletag :now
 
   test "request/2 returns valid create permission request signed with creds" do
-    creds = CH.valid_creds()
+    creds = CH.final()
     peer_addr1 = {127, 0, 0, 1}
     peer_addr2 = {127, 0, 0, 2}
 
@@ -34,7 +34,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
 
     describe "eval_response/2" do
     test "returns :ok on successful refresh response" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -45,7 +45,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
     end
 
     test "returns :bad_response on invalid STUN method" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -57,7 +57,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
     end
 
     test "returns :bad_response on failure without ERROR-CODE" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -69,7 +69,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
     end
 
     test "returns creds with updated nonce on :stale_nonce error" do
-      creds = CH.valid_creds() |> Map.put(:nonce, "I'm expired")
+      creds = CH.final() |> Map.put(:nonce, "I'm expired")
       new_nonce = CH.valid_nonce()
 
       params =
@@ -84,7 +84,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
     end
 
     test "returns unchanged creds and error name on other errors" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       error = :forbidden
 
       params =

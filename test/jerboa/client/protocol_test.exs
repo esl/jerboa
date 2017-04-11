@@ -9,7 +9,7 @@ defmodule Jerboa.Client.ProtocolTest do
 
   describe "encode_request/2" do
     test "signs params if given credentials are complete" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       params =
         Params.new()
         |> Params.put_class(:request)
@@ -25,15 +25,14 @@ defmodule Jerboa.Client.ProtocolTest do
     end
 
     test "does not sign params if credentials are not complete" do
-      creds = CH.incomplete_creds()
+      creds = CH.initial()
       params =
         Params.new()
         |> Params.put_class(:request)
         |> Params.put_method(:allocate)
 
       {id, request} = Protocol.encode_request(params, creds)
-      decoded = Format.decode!(request, secret: creds.secret,
-        username: creds.username, realm: creds.realm)
+      decoded = Format.decode!(request)
 
       assert id == params.identifier
       refute decoded.signed?
@@ -43,7 +42,7 @@ defmodule Jerboa.Client.ProtocolTest do
 
   describe "base_params/1" do
     test "returns params with credentials if credentials are complete" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params = Protocol.base_params(creds)
 
@@ -53,7 +52,7 @@ defmodule Jerboa.Client.ProtocolTest do
     end
 
     test "returns params without credentials if credentials are not complete" do
-      creds = CH.incomplete_creds()
+      creds = CH.initial()
 
       params = Protocol.base_params(creds)
 
@@ -65,7 +64,7 @@ defmodule Jerboa.Client.ProtocolTest do
 
   describe "eval_failure/2" do
     test "returns :bad_response given params without error code" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       params = Params.new() |> Params.put_class(:failure)
 
       assert {:error, :bad_response, creds} ==
@@ -75,7 +74,7 @@ defmodule Jerboa.Client.ProtocolTest do
     test "returns credentials with updated nonce if error reason is :stale_nonce" do
       new_nonce = "abcd"
       old_nonce = CH.invalid_nonce()
-      creds = CH.valid_creds() |> Map.put(:nonce, old_nonce)
+      creds = CH.final() |> Map.put(:nonce, old_nonce)
       params =
         Params.new()
         |> Params.put_class(:failure)
@@ -89,7 +88,7 @@ defmodule Jerboa.Client.ProtocolTest do
     end
 
     test "returns :bad_response on :stale_nonce error without nonce attribute" do
-      creds = CH.valid_creds()
+      creds = CH.final()
 
       params =
         Params.new()
@@ -101,7 +100,7 @@ defmodule Jerboa.Client.ProtocolTest do
     end
 
     test "returns error name of error included in params" do
-      creds = CH.valid_creds()
+      creds = CH.final()
       error = :allocation_mismatch
 
       params =

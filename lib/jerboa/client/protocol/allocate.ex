@@ -53,8 +53,9 @@ defmodule Jerboa.Client.Protocol.Allocate do
     cond do
       is_nil error ->
         {:error, :bad_response, creds}
-      error.name == :unauthorized && is_nil(creds.realm) && realm_attr && nonce_attr ->
-        new_creds = %{creds | realm: realm_attr.value, nonce: nonce_attr.value}
+      error.name == :unauthorized && realm_attr && nonce_attr ->
+        new_creds =
+          Credentials.finalize(creds, realm_attr.value, nonce_attr.value)
         {:error, error.name, new_creds}
       error.name == :stale_nonce && nonce_attr ->
         new_creds = %{creds | nonce: nonce_attr.value}

@@ -10,13 +10,13 @@ defmodule Jerboa.Test.Helper.Credentials do
 
   @invalid_nonce "dcba"
 
-  def valid_creds do
-    %Credentials{username: @username, realm: @realm,
-                 nonce: @nonce, secret: @secret}
+  def final do
+    %Credentials.Final{username: @username, realm: @realm,
+                       nonce: @nonce, secret: @secret}
   end
 
-  def incomplete_creds do
-    valid_creds() |> Map.put(:nonce, nil)
+  def initial do
+    %Credentials.Initial{username: @username, secret: @secret}
   end
 
   def invalid_nonce, do: @invalid_nonce
