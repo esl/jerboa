@@ -10,7 +10,8 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Relay
   alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
-  alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh, CreatePermission}
+  alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
+                                CreatePermission, Send}
   alias Jerboa.Client.Transaction
 
   require Logger
@@ -99,6 +100,19 @@ defmodule Jerboa.Client.Worker do
         "No allocation present on the server, create permission request blocked"
       end
       {:reply, {:error, :no_allocation}, state}
+    end
+  end
+  def handle_call({:send, peer, data}, _, state) do
+    formatted_peer = Client.format_address(peer)
+    if has_permission?(state, peer) do
+      indication = Send.indication(peer, data)
+      Logger.debug "Sending data to #{formatted_peer} via send indication"
+      send(indication, state.server, state.socket)
+      {:reply, :ok, state}
+    else
+      Logger.debug "No permission installed for #{formatted_peer}, " <>
+        "send indication blocked"
+      {:reply, {:error, :no_permission}, state}
     end
   end
 
@@ -311,10 +325,17 @@ defmodule Jerboa.Client.Worker do
   defp add_permissions(relay, peer_addrs, transaction_id) do
     new_permissions =
         Enum.map peer_addrs, fn addr ->
-        %Permission{peer_address: addr, transaction_id: transaction_id,
-                    acked?: false}
+          %Permission{peer_address: addr, transaction_id: transaction_id,
+                      acked?: false}
       end
     %{relay | permissions: new_permissions ++ relay.permissions}
+  end
+
+  @spec has_permission?(state, peer :: Client.ip) :: boolean
+  defp has_permission?(state, {address, _port}) do
+    Enum.any?(state.relay.permissions, fn perm ->
+      perm.peer_address == address
+    end)
   end
 
   @spec cancel_permission_timers(Relay.t) :: any
