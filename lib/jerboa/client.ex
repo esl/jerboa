@@ -92,7 +92,7 @@ defmodule Jerboa.Client do
   """
   @spec bind(t) :: {:ok, address} | {:error, :bad_response} | no_return
   def bind(client) do
-    GenServer.call(client, :bind)
+    request(client, :bind).()
   end
 
   @doc """
@@ -109,7 +109,12 @@ defmodule Jerboa.Client do
   """
   @spec allocate(t) :: {:ok, address} | {:error, error}
   def allocate(client) do
-    GenServer.call(client, :allocate)
+    call = request(client, :allocate)
+    case call.() do
+      {:error, :stale_nonce} -> call.()
+      {:error, :unauthorized} -> call.()
+      result -> result
+    end
   end
 
   @doc """
@@ -117,7 +122,7 @@ defmodule Jerboa.Client do
   """
   @spec refresh(t) :: :ok | {:error, error}
   def refresh(client) do
-    GenServer.call(client, :refresh)
+    maybe_retry(client, :refresh)
   end
 
   @doc """
@@ -136,7 +141,7 @@ defmodule Jerboa.Client do
   @spec create_permission(t, peers :: ip | [ip, ...]) :: :ok | {:error, error}
   def create_permission(_client, []), do: :ok
   def create_permission(client, peers) when is_list(peers) do
-    GenServer.call(client, {:create_permission, peers})
+    maybe_retry(client, {:create_permission, peers})
   end
   def create_permission(client, peer), do: create_permission(client, [peer])
 
@@ -147,11 +152,25 @@ defmodule Jerboa.Client do
     when error: :not_found | :simple_one_for_one
   def stop(client) do
     Supervisor.terminate_child(Client.Supervisor, client)
-    end
+  end
 
   @doc false
   @spec format_address(address) :: String.t
   def format_address({ip, port}) do
     "#{:inet.ntoa(ip)}:#{port}"
+  end
+
+  @spec request(t, term) :: (() -> {:error, error} | term)
+  defp request(client, req), do: fn -> GenServer.call(client, req) end
+
+  @spec maybe_retry(t, term) :: {:error, error} | term
+  defp maybe_retry(client, req) do
+    call = request(client, req)
+    case call.() do
+      {:error, :stale_nonce} ->
+        call.()
+      result ->
+        result
+    end
   end
 end
