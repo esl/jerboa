@@ -53,7 +53,7 @@ defmodule Jerboa.Client.Protocol.Allocate do
     cond do
       is_nil error ->
         {:error, :bad_response, creds}
-      error.name == :unauthorized && realm_attr && nonce_attr ->
+      should_finalize_creds?(creds, error.name, realm_attr, nonce_attr) ->
         new_creds =
           Credentials.finalize(creds, realm_attr.value, nonce_attr.value)
         {:error, error.name, new_creds}
@@ -63,5 +63,12 @@ defmodule Jerboa.Client.Protocol.Allocate do
       true ->
         {:error, error.name, creds}
     end
+    end
+
+  @spec should_finalize_creds?(Credentials.t, ErrorCode.name,
+    Realm.t | nil, Nonce.t | nil) :: boolean
+  defp should_finalize_creds?(creds, :unauthorized, %Realm{}, %Nonce{}) do
+    not Credentials.complete?(creds)
   end
+  defp should_finalize_creds?(_, _, _, _), do: false
 end

@@ -254,7 +254,7 @@ defmodule Jerboa.Client.Worker do
   end
 
   @spec create_perm_response_handler :: Transaction.handler
-  def create_perm_response_handler do
+  defp create_perm_response_handler do
     fn params, creds, relay ->
       case CreatePermission.eval_response(params, creds) do
         :ok ->

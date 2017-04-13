@@ -92,7 +92,7 @@ defmodule Jerboa.Client do
   """
   @spec bind(t) :: {:ok, address} | {:error, :bad_response} | no_return
   def bind(client) do
-    GenServer.call(client, :bind)
+    request(client, :bind).()
   end
 
   @doc """
@@ -109,7 +109,7 @@ defmodule Jerboa.Client do
   """
   @spec allocate(t) :: {:ok, address} | {:error, error}
   def allocate(client) do
-    call = fn -> GenServer.call(client, :allocate) end
+    call = request(client, :allocate)
     case call.() do
       {:error, :stale_nonce} -> call.()
       {:error, :unauthorized} -> call.()
@@ -122,11 +122,7 @@ defmodule Jerboa.Client do
   """
   @spec refresh(t) :: :ok | {:error, error}
   def refresh(client) do
-    call = fn -> GenServer.call(client, :refresh) end
-    case call.() do
-      {:error, :stale_nonce} -> call.()
-      result -> result
-    end
+    maybe_retry(client, :refresh)
   end
 
   @doc """
@@ -145,11 +141,7 @@ defmodule Jerboa.Client do
   @spec create_permission(t, peers :: ip | [ip, ...]) :: :ok | {:error, error}
   def create_permission(_client, []), do: :ok
   def create_permission(client, peers) when is_list(peers) do
-    call = fn -> GenServer.call(client, {:create_permission, peers}) end
-    case call.() do
-      {:error, :stale_nonce} -> call.()
-      result -> result
-    end
+    maybe_retry(client, {:create_permission, peers})
   end
   def create_permission(client, peer), do: create_permission(client, [peer])
 
@@ -166,5 +158,19 @@ defmodule Jerboa.Client do
   @spec format_address(address) :: String.t
   def format_address({ip, port}) do
     "#{:inet.ntoa(ip)}:#{port}"
+  end
+
+  @spec request(t, term) :: (() -> {:error, error} | term)
+  defp request(client, req), do: fn -> GenServer.call(client, req) end
+
+  @spec maybe_retry(t, term) :: {:error, error} | term
+  defp maybe_retry(client, req) do
+    call = request(client, req)
+    case call.() do
+      {:error, :stale_nonce} ->
+        call.()
+      result ->
+        result
+    end
   end
 end

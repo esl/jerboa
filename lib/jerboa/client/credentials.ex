@@ -7,6 +7,8 @@ defmodule Jerboa.Client.Credentials do
   @type t :: Initial.t | Final.t
 
   defmodule Initial do
+    @moduledoc false
+
     defstruct [:username, :secret]
 
     @type t :: %__MODULE__{
@@ -16,6 +18,8 @@ defmodule Jerboa.Client.Credentials do
   end
 
   defmodule Final do
+    @moduledoc false
+
     defstruct [:username, :secret, :realm, :nonce]
 
     @type t :: %__MODULE__{
@@ -32,7 +36,7 @@ defmodule Jerboa.Client.Credentials do
     %Initial{username: username, secret: secret}
   end
 
-  @spec finalize(t, String.t, String.t) :: Final.t
+  @spec finalize(Initial.t, String.t, String.t) :: Final.t
   def finalize(%Initial{} = creds, realm, nonce)
     when is_binary(realm) and is_binary(nonce) do
     %Final{
@@ -42,7 +46,6 @@ defmodule Jerboa.Client.Credentials do
       nonce: nonce
     }
   end
-  def finalize(%Final{} = creds, _, _), do: creds
 
   @spec to_decode_opts(t) :: Keyword.t
   def to_decode_opts(%Initial{}), do: []
