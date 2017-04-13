@@ -15,7 +15,7 @@ defmodule Jerboa.Params do
   The following fields coresspond to the those described in the [STUN
   RFC](https://tools.ietf.org/html/rfc5389#section-6):
 
-  * `class` is one of request, success or failure response, or indincation
+  * `class` is one of request, success or failure response, or indication
   * `method` is a STUN (or TURN) message method described in one of the respective RFCs
   * `identifier` is a unique transaction identifier
   * `attributes` is a list of STUN (or TURN) attributes as described in their
