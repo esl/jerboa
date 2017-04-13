@@ -16,7 +16,7 @@ defmodule Jerboa.Client.Worker do
   require Logger
 
   defstruct [:server, :socket, credentials: %Credentials{},
-             relay: %Relay{}, transactions: []]
+             relay: %Relay{}, transactions: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
 
@@ -25,7 +25,7 @@ defmodule Jerboa.Client.Worker do
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
-    transactions: [Transaction.t],
+    transactions: %{transaction_id :: binary => Transaction.t},
     relay: Relay.t
   }
 
@@ -129,11 +129,7 @@ defmodule Jerboa.Client.Worker do
           state
         transaction ->
           state = handle_response(state, params, transaction)
-          new_transactions =
-            Enum.filter state.transactions, fn t ->
-              t.id != transaction.id
-            end
-          %{state | transactions: new_transactions}
+          remove_transaction(state, transaction.id)
       end
     {:noreply, new_state}
   end
@@ -185,12 +181,19 @@ defmodule Jerboa.Client.Worker do
 
   @spec add_transaction(state, Transaction.t) :: state
   defp add_transaction(state, t) do
-    %{state | transactions: [t | state.transactions]}
+    new_transactions = Map.put(state.transactions, t.id, t)
+    %{state | transactions: new_transactions}
   end
 
   @spec find_transaction(state, id :: binary) :: Transaction.t | nil
   defp find_transaction(state, id) do
-    Enum.find(state.transactions, fn t -> t.id == id end)
+    Map.get(state.transactions, id, nil)
+  end
+
+  @spec remove_transaction(state, id :: binary) :: state
+  defp remove_transaction(state, id) do
+    new_transactions = Map.delete(state.transactions, id)
+    %{state | transactions: new_transactions}
   end
 
   ## Transaction handlers
