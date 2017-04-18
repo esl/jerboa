@@ -11,7 +11,8 @@ defmodule Jerboa.Format.Body.Attribute.ChannelNumberTest do
       min = ChannelNumber.min_number()
       max = ChannelNumber.max_number()
       ptest number: int(min: min, max: max) do
-        assert <<number::16, 0::16>> == %ChannelNumber{number: number} |> ChannelNumber.encode()
+        assert <<number::16, 0::16>> \
+          == %ChannelNumber{number: number} |> ChannelNumber.encode()
       end
     end
 
@@ -38,7 +39,8 @@ defmodule Jerboa.Format.Body.Attribute.ChannelNumberTest do
     test "accepts binaries starting with 0b01" do
       ptest number: int(min: 0b0100_0000_0000_0000, max: 0b0111_1111_1111_1111) do
         encoded = <<number::16, 0::16>>
-        assert {:ok, _, %ChannelNumber{number: number}} = ChannelNumber.decode(encoded, %Meta{})
+        assert {:ok, _, %ChannelNumber{number: number}} \
+          = ChannelNumber.decode(encoded, %Meta{})
       end
     end
 

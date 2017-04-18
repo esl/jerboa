@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute.ChannelNumber do
   """
 
   alias Jerboa.Format.ChannelNumber.First2BitsError
-  alias Jerboa.Format.Body.Attribute.{Decoder,Encoder}
+  alias Jerboa.Format.Body.Attribute.{Decoder, Encoder}
   alias Jerboa.Format.Meta
 
   @min_number 0x4000
