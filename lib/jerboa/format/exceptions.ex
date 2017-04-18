@@ -514,3 +514,23 @@ defmodule Jerboa.Format.ReservationToken.LengthError do
                   "length. Expected 8 bytes, found #{length}"}
   end
 end
+
+defmodule Jerboa.Format.ChannelNumber.First2BitsError do
+  @moduledoc """
+  Error indicating that the first two bits of a CHANNEL-NUMBER value
+  do not match the required 0b01 value
+
+  Exception struct fields:
+
+  * `:bits` - a 2 bit long bitstring with the value of first two bits
+    of a message
+  """
+
+  defexception [:message, :bits]
+
+  def exception(opts) do
+    %__MODULE__{bits: opts[:bits],
+                message: "the two most significant bits of a TURN " <>
+                         "CHANNEL-NUMBER must be 0b01"}
+  end
+end
