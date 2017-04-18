@@ -146,6 +146,18 @@ defmodule Jerboa.Client do
   def create_permission(client, peer), do: create_permission(client, [peer])
 
   @doc """
+  Sends data to a given peer
+
+  Note that there are no guarantees that the data sent reaches
+  the peer. TURN servers don't acknowledge Send indications.
+  """
+  @spec send(t, peer :: address, data :: binary)
+    :: :ok | {:error, :no_permission}
+  def send(client, peer, data) do
+    request(client, {:send, peer, data}).()
+  end
+
+  @doc """
   Stops the client
   """
   @spec stop(t) :: :ok | {:error, error}
