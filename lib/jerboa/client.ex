@@ -186,6 +186,57 @@ defmodule Jerboa.Client do
   end
 
   @doc """
+  Waits for data from the given peer
+
+  It accepts peer address and desired timeout in milliseconds.
+  Default timeout is 5000.
+  """
+  @spec recv(t, peer_addr :: ip, timeout :: non_neg_integer | :infinity)
+    :: {:ok, peer :: address, binary} | {:error, :timeout}
+  def recv(client, peer_addr, timeout \\ 5000) do
+    ref = make_ref()
+    receiver = self()
+    handler_ref = install_handler(client, peer_addr, fn peer, data ->
+      send receiver, {:peer_data, ref, peer, data}
+    end)
+    result =
+      receive do
+        {:peer_data, ^ref, peer, data} ->
+          {:ok, peer, data}
+      after
+        timeout ->
+          {:error, :timeout}
+      end
+    remove_handler(client, handler_ref)
+    result
+  end
+
+  @doc """
+  Installs data handler which sends data received from peer
+  to the given PID
+
+  Data is sent in the format
+
+      {:peer_data, peer, data}
+
+  where `data` is a `binary` and `peer` has a format of `address` type.
+
+  Returns a reference which may be used to cancel the handler
+  using `remove_handler/2`.
+
+  Note: when `recv/3` is called by the process which data is streamed to,
+  data returned from `recv/3` will also be present in process mailbox.
+  This is happening because `recv/3` installs regular data handler
+  and does not remove handlers already installed in the client process.
+  """
+  @spec stream_to(t, to :: pid, peer_addr :: ip) :: reference
+  def stream_to(client, to, peer_addr) do
+    install_handler(client, peer_addr, fn peer, data ->
+      send to, {:peer_data, peer, data}
+    end)
+  end
+
+  @doc """
   Stops the client
   """
   @spec stop(t) :: :ok | {:error, error}
