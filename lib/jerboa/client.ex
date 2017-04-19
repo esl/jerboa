@@ -55,6 +55,7 @@ defmodule Jerboa.Client do
   @type port_no :: :inet.port_number
   @type ip :: :inet.ip_address
   @type address :: {ip, port_no}
+  @type data_handler :: (peer :: address, data :: binary -> term)
   @type start_opts :: [start_opt]
   @type start_opt :: {:server, address}
                    | {:username, String.t}
@@ -155,6 +156,33 @@ defmodule Jerboa.Client do
     :: :ok | {:error, :no_permission}
   def send(client, peer, data) do
     request(client, {:send, peer, data}).()
+  end
+
+  @doc """
+  Installs handler for data received from given peer
+
+  Returns a reference which may be used later to delete the handler
+  from the client. The handler won't be deleted after data is received.
+  """
+  @spec install_handler(t, peer :: ip, data_handler) :: reference
+  def install_handler(client, peer, handler) do
+    request(client, {:install_handler, peer, handler}).()
+  end
+
+  @doc """
+  Installs handler for data received from all peers
+  """
+  @spec install_handler(t, data_handler) :: reference
+  def install_handler(client, handler) do
+    request(client, {:install_handler, :all, handler}).()
+  end
+
+  @doc """
+  Removes previously installed handler
+  """
+  @spec remove_handler(t, reference) :: :ok
+  def remove_handler(client, reference) do
+    request(client, {:remove_handler, reference}).()
   end
 
   @doc """
