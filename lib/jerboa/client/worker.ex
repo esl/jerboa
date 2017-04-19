@@ -11,7 +11,7 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
-                                CreatePermission, Send}
+                                CreatePermission, Send, Data}
   alias Jerboa.Client.Transaction
 
   require Logger

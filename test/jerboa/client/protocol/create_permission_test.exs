@@ -9,8 +9,6 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
   alias Jerboa.Format.Body.Attribute.XORPeerAddress, as: XPA
   alias Jerboa.Format.Body.Attribute.{Nonce, ErrorCode}
 
-  @moduletag :now
-
   test "request/2 returns valid create permission request signed with creds" do
     creds = CH.final()
     peer_addr1 = {127, 0, 0, 1}
@@ -32,7 +30,7 @@ defmodule Jerboa.Client.Protocol.CreatePermissionTest do
     assert peer_addr2 in xor_peer_addrs
   end
 
-    describe "eval_response/2" do
+  describe "eval_response/2" do
     test "returns :ok on successful refresh response" do
       creds = CH.final()
 
