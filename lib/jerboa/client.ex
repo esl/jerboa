@@ -1,5 +1,5 @@
 defmodule Jerboa.Client do
-  @moduledoc """
+  @moduledoc ~S"""
   STUN client process
 
   Use `start/1` function to spawn new client process:
@@ -39,6 +39,66 @@ defmodule Jerboa.Client do
 
   Note that allocations have an expiration time (RFC recommends 10 minutes), To refresh
   an existing allocation one can use `refresh/1`.
+
+  ## Creating permissions
+
+  In order to exchange data with a peer using relay on a TURN server, TURN client must create
+  a permission for the peer first (otherwise any third-party could send data to a client via relay).
+  Creating permissions is done with `create_permission/2`. This functions accepts an IP address
+  or a list of IP addresses and installs permissions for those addresses on a TURN server.
+
+  Note that addresses passed to this function should be server reflexive (most likely
+  resolved by some kind of signalling - see ICE RFC for more information), i.e. the TURN
+  server will allow to relay data to and from these addresses without any attempt of
+  NAT translations.
+
+      iex> Jerboa.Client.create_permission client, {192, 168, 0, 27}
+
+  ## Exchanging data
+
+  Once we have installed permissions for some IP address, we can send and receive data from
+  any port bound to that address (please note again - the address as seen by the server).
+
+  To send data you can use simple `send/3` call. This function accepts peer's IP address and port
+  and data to be sent. Jerboa won't allow you to send data to a peer if you haven't installed
+  permission for it.
+
+      iex> Jerboa.Client.send client, {{192, 168, 0, 27}, 12345}, "Hello, Mike!"
+
+
+  There are two simple ways to receive data from peers: `recv/2` and `stream_to/3`. `recv/2`
+  is a blocking function which will wait for the data sent by the peer whose address is passed
+  as argument.
+
+      iex> Jerboa.Client.recv client, {192, 168, 0, 27}
+      {:ok, {{192, 168, 0, 27}, 12345}, "Alice has a cat"}
+
+  `stream_to/3` allows you pass the PID which will be sent data received by the client process
+  from the given peer. You can call `stream_to/3` multiple times with different target PIDs.
+
+      iex> Jerboa.Client.stream_to client, self(), {192, 168, 0, 27}
+      iex> flush()
+      {:peer_data, {{192, 168, 0, 27}, 12345}, "Alice has a cat"}
+
+  ## Advanced data handling
+
+  If `recv/2` and `stream_to/3` is not enough for handling incoming data, you can install
+  custom data handlers using `install_handler/3`. This function takes a peer IP address
+  and a anonymous function which will be called every time data is received from the given peer.
+  The anonymous function must accept two arguments: first is a tuple with peer's IP address and port,
+  and second is a received binary.
+
+  For example, if you'd like to log every incoming packet, you could install following handler:
+
+      iex> Jerboa.Client.install_handler client, {192, 168, 0, 27}, fn _, data -> Logger.debug "Received data: #{data}" end
+
+  There is also `install_handler/2` function, which will install handler for all peers.
+
+  Note that handlers will be called only if there is a permission installed for the peer
+  who is the source of a data.
+
+  Both versions of `install_handler` return a reference which can be later used to remove handlers
+  using `remove_handler/2`.
 
   ## Logging
 
