@@ -373,9 +373,7 @@ defmodule Jerboa.Client.Worker do
   @spec maybe_run_data_handlers(state, Client.address, binary) :: any
   defp maybe_run_data_handlers(state, peer, data) do
     if has_permission?(state, peer) do
-      run_handler = fn handler ->
-        Task.start(fn -> run_data_handler(handler, peer, data) end)
-      end
+      run_handler = & Task.start(fn -> run_data_handler(&1, peer, data) end)
 
       {peer_addr, _} = peer
 

@@ -65,7 +65,6 @@ defmodule Jerboa.Client do
 
       iex> Jerboa.Client.send client, {{192, 168, 0, 27}, 12345}, "Hello, Mike!"
 
-
   There are two simple ways to receive data from peers: `recv/2` and `stream_to/3`. `recv/2`
   is a blocking function which will wait for the data sent by the peer whose address is passed
   as argument.
