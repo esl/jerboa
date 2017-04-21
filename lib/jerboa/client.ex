@@ -225,7 +225,7 @@ defmodule Jerboa.Client do
   """
   @spec install_handler(t, peer :: ip, data_handler) :: reference
   def install_handler(client, peer, handler) do
-    request(client, {:install_handler, peer, handler}).()
+    request(client, {:install_handler, peer, handler, self()}).()
   end
 
   @doc """
@@ -233,7 +233,7 @@ defmodule Jerboa.Client do
   """
   @spec install_handler(t, data_handler) :: reference
   def install_handler(client, handler) do
-    request(client, {:install_handler, :all, handler}).()
+    request(client, {:install_handler, :all, handler, self()}).()
   end
 
   @doc """
@@ -272,7 +272,7 @@ defmodule Jerboa.Client do
 
   @doc """
   Installs data handler which sends data received from peer
-  to the given PID
+  to the caller
 
   Data is sent in the format
 
@@ -283,15 +283,16 @@ defmodule Jerboa.Client do
   Returns a reference which may be used to cancel the handler
   using `remove_handler/2`.
 
-  Note: when `recv/3` is called by the process which data is streamed to,
+  Note: when `recv/3` is called by the process which called `stream/2` before,
   data returned from `recv/3` will also be present in process mailbox.
   This is happening because `recv/3` installs regular data handler
   and does not remove handlers already installed in the client process.
   """
-  @spec stream_to(t, to :: pid, peer_addr :: ip) :: reference
-  def stream_to(client, to, peer_addr) do
+  @spec stream(t, peer_addr :: ip) :: reference
+  def stream(client, peer_addr) do
+    receiver = self()
     install_handler(client, peer_addr, fn peer, data ->
-      send to, {:peer_data, peer, data}
+      send receiver, {:peer_data, peer, data}
     end)
   end
 

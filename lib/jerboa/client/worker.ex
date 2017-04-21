@@ -118,12 +118,13 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_permission}, state}
     end
   end
-  def handle_call({:install_handler, peer, handler}, _, state) do
-    {new_state, ref} = add_data_handler(state, peer, handler)
+  def handle_call({:install_handler, peer, handler, caller}, _, state) do
+    caller_monitor_ref = Process.monitor caller
+    {new_state, ref} = add_data_handler(state, peer, handler, caller_monitor_ref)
     {:reply, ref, new_state}
   end
   def handle_call({:remove_handler, reference}, _, state) do
-    new_state = remove_data_handler(state, reference)
+    new_state = remove_data_handler(state, & &1.ref == reference)
     {:reply, :ok, new_state}
   end
 
@@ -158,6 +159,10 @@ defmodule Jerboa.Client.Worker do
           remove_transaction(state, transaction.id)
       end
     {:noreply, new_state}
+  end
+  def handle_info({:DOWN, monitor_ref, _, _, _}, state) do
+    state = remove_data_handler(state, & &1.caller_monitor_ref == monitor_ref)
+    {:noreply, state}
   end
 
   def terminate(_, state) do
@@ -397,20 +402,20 @@ defmodule Jerboa.Client.Worker do
     handler.fun.(peer, data)
   end
 
-  @spec add_data_handler(state, handler_target, Client.data_handler)
+  @spec add_data_handler(state, handler_target, Client.data_handler, reference)
     :: {state, reference}
-  defp add_data_handler(state, peer_or_all, handler_fun) do
-    handler = DataHandler.new(handler_fun)
+  defp add_data_handler(state, peer_or_all, handler_fun, caller_monitor_ref) do
+    handler = DataHandler.new(handler_fun, caller_monitor_ref)
     new_handlers =
       Map.update(state.data_handlers, peer_or_all, [handler], & [handler | &1])
     {%{state | data_handlers: new_handlers}, handler.ref}
   end
 
-  @spec remove_data_handler(state, reference) :: state
-  defp remove_data_handler(state, reference) do
+  @spec remove_data_handler(state, (DataHandler.t -> boolean)) :: state
+  defp remove_data_handler(state, fun) do
     new_data_handlers = Enum.reduce(state.data_handlers, %{},
       fn {target, handlers}, acc ->
-        new_handlers = Enum.filter handlers, & &1.ref != reference
+        new_handlers = Enum.reject handlers, fun
         case new_handlers do
           [] -> acc
           _  -> Map.put(acc, target, new_handlers)
