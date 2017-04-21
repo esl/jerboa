@@ -11,23 +11,26 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
-                                CreatePermission, Send}
+                                CreatePermission, Send, Data}
   alias Jerboa.Client.Transaction
+  alias Jerboa.Client.DataHandler
 
   require Logger
 
   defstruct [:server, :socket, credentials: %Credentials{},
-             relay: %Relay{}, transactions: %{}]
+             relay: %Relay{}, transactions: %{}, data_handlers: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
+  @type handler_target :: (peer :: Client.ip | :all)
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
     transactions: %{transaction_id :: binary => Transaction.t},
-    relay: Relay.t
+    relay: Relay.t,
+    data_handlers: %{handler_target => [DataHandler.t]}
   }
 
   @system_allocated_port 0
@@ -115,6 +118,15 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_permission}, state}
     end
   end
+  def handle_call({:install_handler, peer, handler, caller}, _, state) do
+    caller_monitor_ref = Process.monitor caller
+    {new_state, ref} = add_data_handler(state, peer, handler, caller_monitor_ref)
+    {:reply, ref, new_state}
+  end
+  def handle_call({:remove_handler, reference}, _, state) do
+    new_state = remove_data_handler(state, & &1.ref == reference)
+    {:reply, :ok, new_state}
+  end
 
   def handle_cast(:persist, state) do
     indication = Binding.indication()
@@ -140,12 +152,17 @@ defmodule Jerboa.Client.Worker do
     new_state =
       case find_transaction(state, params.identifier) do
         nil ->
+          handle_peer_data(state, params)
           state
         transaction ->
           state = handle_response(state, params, transaction)
           remove_transaction(state, transaction.id)
       end
     {:noreply, new_state}
+  end
+  def handle_info({:DOWN, monitor_ref, _, _, _}, state) do
+    state = remove_data_handler(state, & &1.caller_monitor_ref == monitor_ref)
+    {:noreply, state}
   end
 
   def terminate(_, state) do
@@ -188,6 +205,16 @@ defmodule Jerboa.Client.Worker do
       %{relay | timer_ref: new_ref}
     else
       relay
+    end
+  end
+
+  @spec handle_peer_data(state, Params.t) :: any
+  defp handle_peer_data(state, params) do
+    case Data.eval_indication(params) do
+      {:ok, peer, data} ->
+        maybe_run_data_handlers(state, peer, data)
+      :error ->
+        Logger.debug "Received unprocessable STUN message"
     end
   end
 
@@ -293,6 +320,8 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
+  ## Permissions
+
   @spec update_permissions(Relay.t, transaction_id :: binary) :: Relay.t
   defp update_permissions(relay, transaction_id) do
     new_perms =
@@ -331,7 +360,7 @@ defmodule Jerboa.Client.Worker do
     %{relay | permissions: new_permissions ++ relay.permissions}
   end
 
-  @spec has_permission?(state, peer :: Client.ip) :: boolean
+  @spec has_permission?(state, peer :: Client.address) :: boolean
   defp has_permission?(state, {address, _port}) do
     Enum.any?(state.relay.permissions, fn perm ->
       perm.peer_address == address
@@ -342,5 +371,56 @@ defmodule Jerboa.Client.Worker do
   defp cancel_permission_timers(relay) do
     relay.permissions
     |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
+  end
+
+  ## Data handlers
+
+  @spec maybe_run_data_handlers(state, Client.address, binary) :: any
+  defp maybe_run_data_handlers(state, peer, data) do
+    if has_permission?(state, peer) do
+      run_handler = & Task.start(fn -> run_data_handler(&1, peer, data) end)
+
+      {peer_addr, _} = peer
+
+      state
+      |> get_data_handlers_for(peer_addr)
+      |> Enum.each(run_handler)
+
+      state
+      |> get_data_handlers_for(:all)
+      |> Enum.each(run_handler)
+    end
+  end
+
+  @spec get_data_handlers_for(state, handler_target) :: [DataHandler.t]
+  defp get_data_handlers_for(state, peer_addr_or_all) do
+    Map.get(state.data_handlers, peer_addr_or_all, [])
+  end
+
+  @spec run_data_handler(DataHandler.t, Client.address, binary) :: any
+  defp run_data_handler(handler, peer, data) do
+    handler.fun.(peer, data)
+  end
+
+  @spec add_data_handler(state, handler_target, Client.data_handler, reference)
+    :: {state, reference}
+  defp add_data_handler(state, peer_or_all, handler_fun, caller_monitor_ref) do
+    handler = DataHandler.new(handler_fun, caller_monitor_ref)
+    new_handlers =
+      Map.update(state.data_handlers, peer_or_all, [handler], & [handler | &1])
+    {%{state | data_handlers: new_handlers}, handler.ref}
+  end
+
+  @spec remove_data_handler(state, (DataHandler.t -> boolean)) :: state
+  defp remove_data_handler(state, fun) do
+    new_data_handlers = Enum.reduce(state.data_handlers, %{},
+      fn {target, handlers}, acc ->
+        new_handlers = Enum.reject handlers, fun
+        case new_handlers do
+          [] -> acc
+          _  -> Map.put(acc, target, new_handlers)
+        end
+      end)
+    %{state | data_handlers: new_data_handlers}
   end
 end
