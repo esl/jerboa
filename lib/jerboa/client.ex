@@ -161,7 +161,7 @@ defmodule Jerboa.Client do
   Subscribes PID to data received from the given peer
 
   Message format is
-      {:peer_data, client_pid :: pid,peer :: address, data :: binary}
+      {:peer_data, client_pid :: pid, peer :: address, data :: binary}
   """
   @spec subscribe(t, sub :: pid, peer_addr :: ip) :: :ok
   def subscribe(client, pid, peer_addr) do
@@ -172,7 +172,7 @@ defmodule Jerboa.Client do
   Subscribes calling process to data received from the given peer
 
   Message format is
-      {:peer_data, client_pid :: pid,peer :: address, data :: binary}
+      {:peer_data, client_pid :: pid, peer :: address, data :: binary}
   """
   @spec subscribe(t, peer_addr :: ip) :: :ok
   def subscribe(client, peer_addr) do
