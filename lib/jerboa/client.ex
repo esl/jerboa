@@ -161,7 +161,7 @@ defmodule Jerboa.Client do
   Subscribes PID to data received from the given peer
 
   Message format is
-      {:peer_data, peer :: address, data :: binary}
+      {:peer_data, client_pid :: pid,peer :: address, data :: binary}
   """
   @spec subscribe(t, sub :: pid, peer_addr :: ip) :: :ok
   def subscribe(client, pid, peer_addr) do
@@ -172,7 +172,7 @@ defmodule Jerboa.Client do
   Subscribes calling process to data received from the given peer
 
   Message format is
-      {:peer_data, peer :: address, data :: binary}
+      {:peer_data, client_pid :: pid,peer :: address, data :: binary}
   """
   @spec subscribe(t, peer_addr :: ip) :: :ok
   def subscribe(client, peer_addr) do
@@ -214,7 +214,7 @@ defmodule Jerboa.Client do
   :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
   def recv(client, peer_addr, timeout \\ 5_000) do
     receive do
-      {:peer_data, {^peer_addr, _} = peer, data} ->
+      {:peer_data, ^client, {^peer_addr, _} = peer, data} ->
         {:ok, peer, data}
     after
       timeout ->

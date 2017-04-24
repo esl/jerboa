@@ -230,7 +230,7 @@ defmodule Jerboa.Client.Worker do
     state.subscriptions
     |> Map.get(peer_addr, [])
     |> Enum.each(fn {sub_pid, _} ->
-      send sub_pid, {:peer_data, peer, data}
+      send sub_pid, {:peer_data, self(), peer, data}
     end)
   end
 
