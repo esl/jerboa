@@ -155,6 +155,44 @@ defmodule Jerboa.Client do
     :: :ok | {:error, :no_permission}
   def send(client, peer, data) do
     request(client, {:send, peer, data}).()
+    end
+
+  @doc """
+  Subscribes PID to data received from the given peer
+
+  Message format is
+      {:peer_data, peer :: address, data :: binary}
+  """
+  @spec subscribe(t, sub :: pid, peer_addr :: ip) :: :ok
+  def subscribe(client, pid, peer_addr) do
+    request(client, {:subscribe, pid, peer_addr}).()
+  end
+
+  @doc """
+  Subscribes calling process to data received from the given peer
+
+  Message format is
+      {:peer_data, peer :: address, data :: binary}
+  """
+  @spec subscribe(t, peer_addr :: ip) :: :ok
+  def subscribe(client, peer_addr) do
+    subscribe(client, self(), peer_addr)
+  end
+
+  @doc """
+  Cancels subscription of given PID
+  """
+  @spec unsubscribe(t, sub :: pid, peer_addr :: ip) :: :ok
+  def unsubscribe(client, pid, peer_addr) do
+    request(client, {:unsubscribe, pid, peer_addr}).()
+  end
+
+  @doc """
+  Cancels subscription of calling process
+  """
+  @spec unsubscribe(t, peer_addr :: ip) :: :ok
+  def unsubscribe(client, peer_addr) do
+    unsubscribe(client, self(), peer_addr)
   end
 
   @doc """

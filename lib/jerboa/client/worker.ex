@@ -17,17 +17,19 @@ defmodule Jerboa.Client.Worker do
   require Logger
 
   defstruct [:server, :socket, credentials: %Credentials{},
-             relay: %Relay{}, transactions: %{}]
+             relay: %Relay{}, transactions: %{}, subscriptions: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
+  @type subscribers :: %{sub_pid :: pid => sub_ref :: reference}
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
     transactions: %{transaction_id :: binary => Transaction.t},
-    relay: Relay.t
+    relay: Relay.t,
+    subscriptions: %{Client.ip => subscribers}
   }
 
   @system_allocated_port 0
@@ -114,6 +116,15 @@ defmodule Jerboa.Client.Worker do
         "send indication blocked"
       {:reply, {:error, :no_permission}, state}
     end
+  end
+  def handle_call({:subscribe, sub_pid, peer_addr}, _, state) do
+    sub_ref = Process.monitor(sub_pid)
+    new_state = add_subscription(state, peer_addr, sub_pid, sub_ref)
+    {:reply, :ok, new_state}
+  end
+  def handle_call({:unsubscribe, sub_pid, peer_addr}, _, state) do
+    new_state = remove_subscription(state, peer_addr, sub_pid)
+    {:reply, :ok, new_state}
   end
 
   def handle_cast(:persist, state) do
@@ -342,5 +353,54 @@ defmodule Jerboa.Client.Worker do
   defp cancel_permission_timers(relay) do
     relay.permissions
     |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
+  end
+
+  ## Subscriptions
+
+  @spec add_subscription(state, Client.ip, pid, reference) :: state
+  defp add_subscription(state, peer_addr, sub_pid, sub_ref) do
+    new_subscriptions =
+      state.subscriptions
+      |> Map.update(peer_addr, %{sub_pid => sub_ref}, fn subs ->
+        update_subscriber_ref(subs, sub_pid, sub_ref)
+      end)
+    %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec update_subscriber_ref(subscribers, pid, reference) :: subscribers
+  defp update_subscriber_ref(subscribers, sub_pid, sub_ref) do
+    if Map.has_key?(subscribers, sub_pid) do
+      old_ref = Map.get(subscribers, sub_pid)
+      Process.demonitor(old_ref)
+    end
+    Map.put(subscribers, sub_pid, sub_ref)
+  end
+
+  @spec remove_subscription(state, Client.ip, pid) :: state
+  defp remove_subscription(state, peer_addr, sub_pid) do
+    subscribers = state.subscriptions[peer_addr]
+    case subscribers do
+      nil ->
+        state
+      _ ->
+        new_subscribers = remove_subscriber(subscribers, sub_pid)
+        update_subscriptions(state, peer_addr, new_subscribers)
+    end
+  end
+
+  @spec remove_subscriber(subscribers, pid) :: subscribers
+  defp remove_subscriber(subscribers, sub_pid) do
+    Map.delete(subscribers, sub_pid)
+  end
+
+  @spec update_subscriptions(state, Client.ip, subscribers) :: state
+  defp update_subscriptions(state, peer_addr, subscribers) do
+    new_subscriptions =
+      if Enum.empty?(subscribers) do
+        Map.delete(state.subscriptions, peer_addr)
+      else
+        Map.put(state.subscriptions, peer_addr, subscribers)
+      end
+    %{state | subscriptions: new_subscriptions}
   end
 end
