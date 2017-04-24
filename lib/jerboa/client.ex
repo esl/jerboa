@@ -155,6 +155,71 @@ defmodule Jerboa.Client do
     :: :ok | {:error, :no_permission}
   def send(client, peer, data) do
     request(client, {:send, peer, data}).()
+    end
+
+  @doc """
+  Subscribes PID to data received from the given peer
+
+  Message format is
+      {:peer_data, client_pid :: pid, peer :: address, data :: binary}
+  """
+  @spec subscribe(t, sub :: pid, peer_addr :: ip) :: :ok
+  def subscribe(client, pid, peer_addr) do
+    request(client, {:subscribe, pid, peer_addr}).()
+  end
+
+  @doc """
+  Subscribes calling process to data received from the given peer
+
+  Message format is
+      {:peer_data, client_pid :: pid, peer :: address, data :: binary}
+  """
+  @spec subscribe(t, peer_addr :: ip) :: :ok
+  def subscribe(client, peer_addr) do
+    subscribe(client, self(), peer_addr)
+  end
+
+  @doc """
+  Cancels subscription of given PID
+  """
+  @spec unsubscribe(t, sub :: pid, peer_addr :: ip) :: :ok
+  def unsubscribe(client, pid, peer_addr) do
+    request(client, {:unsubscribe, pid, peer_addr}).()
+  end
+
+  @doc """
+  Cancels subscription of calling process
+  """
+  @spec unsubscribe(t, peer_addr :: ip) :: :ok
+  def unsubscribe(client, peer_addr) do
+    unsubscribe(client, self(), peer_addr)
+  end
+
+  @doc """
+  Blocks the calling process until it receives the data from the given
+  peer
+
+  Calling process needs to be subscribed to this peer's data
+  before calling this function, otherwise it will always time out.
+
+  Accepts timeout in milliseconds as optional argument (defualt is 5000),
+  may be also atom `:infinity`.
+
+  This function simply uses subscriptions mechanism.
+  It implies lack of knowledge about permissions installed for the given
+  peer, thus if there is no permission, the function will most likely
+  time out.
+  """
+  @spec recv(t, peer_addr :: Client.ip)
+  :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
+  def recv(client, peer_addr, timeout \\ 5_000) do
+    receive do
+      {:peer_data, ^client, {^peer_addr, _} = peer, data} ->
+        {:ok, peer, data}
+    after
+      timeout ->
+        {:error, :timeout}
+    end
   end
 
   @doc """

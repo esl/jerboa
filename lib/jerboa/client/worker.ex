@@ -11,23 +11,25 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
-                                CreatePermission, Send}
+                                CreatePermission, Send, Data}
   alias Jerboa.Client.Transaction
 
   require Logger
 
   defstruct [:server, :socket, credentials: %Credentials{},
-             relay: %Relay{}, transactions: %{}]
+             relay: %Relay{}, transactions: %{}, subscriptions: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
+  @type subscribers :: %{sub_pid :: pid => sub_ref :: reference}
   @type state :: %__MODULE__{
     server: Client.address,
     socket: socket,
     credentials: Credentials.t,
     transactions: %{transaction_id :: binary => Transaction.t},
-    relay: Relay.t
+    relay: Relay.t,
+    subscriptions: %{Client.ip => subscribers}
   }
 
   @system_allocated_port 0
@@ -115,6 +117,15 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_permission}, state}
     end
   end
+  def handle_call({:subscribe, sub_pid, peer_addr}, _, state) do
+    sub_ref = Process.monitor(sub_pid)
+    new_state = add_subscription(state, peer_addr, sub_pid, sub_ref)
+    {:reply, :ok, new_state}
+  end
+  def handle_call({:unsubscribe, sub_pid, peer_addr}, _, state) do
+    new_state = remove_subscription(state, peer_addr, sub_pid)
+    {:reply, :ok, new_state}
+  end
 
   def handle_cast(:persist, state) do
     indication = Binding.indication()
@@ -140,11 +151,16 @@ defmodule Jerboa.Client.Worker do
     new_state =
       case find_transaction(state, params.identifier) do
         nil ->
+          handle_peer_data(state, params)
           state
         transaction ->
           state = handle_response(state, params, transaction)
           remove_transaction(state, transaction.id)
       end
+    {:noreply, new_state}
+  end
+  def handle_info({:DOWN, ref, _, _, _}, state) do
+    new_state = remove_subscription(state, ref)
     {:noreply, new_state}
   end
 
@@ -189,6 +205,33 @@ defmodule Jerboa.Client.Worker do
     else
       relay
     end
+  end
+
+  @spec handle_peer_data(state, Params.t) :: any
+  defp handle_peer_data(state, params) do
+    case Data.eval_indication(params) do
+      {:ok, peer, data} ->
+        maybe_notify_subscribers(state, peer, data)
+      :error ->
+        Logger.debug "Received unprocessable STUN message"
+    end
+  end
+
+  @spec maybe_notify_subscribers(state, Client.address, binary) :: any
+  defp maybe_notify_subscribers(state, peer, data) do
+    if has_permission?(state, peer) do
+      notify_subscribers(state, peer, data)
+    end
+  end
+
+  @spec notify_subscribers(state, Client.address, binary) :: any
+  defp notify_subscribers(state, peer, data) do
+    {peer_addr, _} = peer
+    state.subscriptions
+    |> Map.get(peer_addr, [])
+    |> Enum.each(fn {sub_pid, _} ->
+      send sub_pid, {:peer_data, self(), peer, data}
+    end)
   end
 
   ## Transactions
@@ -331,7 +374,7 @@ defmodule Jerboa.Client.Worker do
     %{relay | permissions: new_permissions ++ relay.permissions}
   end
 
-  @spec has_permission?(state, peer :: Client.ip) :: boolean
+  @spec has_permission?(state, peer :: Client.address) :: boolean
   defp has_permission?(state, {address, _port}) do
     Enum.any?(state.relay.permissions, fn perm ->
       perm.peer_address == address
@@ -342,5 +385,82 @@ defmodule Jerboa.Client.Worker do
   defp cancel_permission_timers(relay) do
     relay.permissions
     |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
+  end
+
+  ## Subscriptions
+
+  @spec add_subscription(state, Client.ip, pid, reference) :: state
+  defp add_subscription(state, peer_addr, sub_pid, sub_ref) do
+    new_subscriptions =
+      state.subscriptions
+      |> Map.update(peer_addr, %{sub_pid => sub_ref}, fn subs ->
+        update_subscriber_ref(subs, sub_pid, sub_ref)
+      end)
+    %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec update_subscriber_ref(subscribers, pid, reference) :: subscribers
+  defp update_subscriber_ref(subscribers, sub_pid, sub_ref) do
+    case Map.fetch(subscribers, sub_pid) do
+      {:ok, old_ref} ->
+        Process.demonitor(old_ref)
+      _ ->
+        :ok
+    end
+    Map.put(subscribers, sub_pid, sub_ref)
+  end
+
+  @spec remove_subscription(state, Client.ip, pid) :: state
+  defp remove_subscription(state, peer_addr, sub_pid) do
+    subscribers = state.subscriptions[peer_addr]
+    case subscribers do
+      nil ->
+        state
+      _ ->
+        new_subscribers = remove_subscriber(subscribers, sub_pid)
+        update_subscriptions(state, peer_addr, new_subscribers)
+    end
+  end
+
+  @spec remove_subscription(state, sub_ref :: reference) :: state
+  defp remove_subscription(state, sub_ref) do
+    new_subscriptions =
+      state.subscriptions
+      |> Enum.reduce(%{}, fn {peer_addr, subscribers}, acc ->
+        new_subscribers = remove_subscriber(subscribers, sub_ref)
+        maybe_put_subscribers(acc, peer_addr, new_subscribers)
+      end)
+    %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec remove_subscriber(subscribers, pid | reference) :: subscribers
+  defp remove_subscriber(subscribers, sub_pid) when is_pid(sub_pid) do
+    Map.delete(subscribers, sub_pid)
+  end
+  defp remove_subscriber(subscribers, sub_ref) when is_reference(sub_ref) do
+    subscribers
+    |> Enum.reject(fn {_, ref} -> ref == sub_ref end)
+    |> Enum.into(%{})
+  end
+
+  @spec update_subscriptions(state, Client.ip, subscribers) :: state
+  defp update_subscriptions(state, peer_addr, subscribers) do
+    new_subscriptions =
+      if Enum.empty?(subscribers) do
+        Map.delete(state.subscriptions, peer_addr)
+      else
+        Map.put(state.subscriptions, peer_addr, subscribers)
+      end
+    %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec maybe_put_subscribers(%{Client.ip => subscribers}, Client.ip, subscribers)
+    :: %{Client.ip => subscribers}
+  defp maybe_put_subscribers(subscriptions, peer_addr, subscribers) do
+    if Enum.empty?(subscribers) do
+      subscriptions
+      else
+        Map.put(subscriptions, peer_addr, subscribers)
+      end
   end
 end
