@@ -9,9 +9,9 @@ defmodule Jerboa.Client.Relay do
 
   @type permission :: {peer_addr :: Client.address, timer_ref :: reference}
   @type t :: %__MODULE__{
-    address: Client.address,
-    lifetime: non_neg_integer,
-    permissions: [Permission.t],
-    timer_ref: reference
+    address:   nil | Client.address,
+    lifetime:  nil | non_neg_integer,
+    timer_ref: nil | reference,
+    permissions: [Permission.t]
   }
 end

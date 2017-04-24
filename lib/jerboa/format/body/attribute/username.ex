@@ -34,7 +34,7 @@ defmodule Jerboa.Format.Body.Attribute.Username do
     alias Jerboa.Format.Body.Attribute.Username
 
     @spec decode(Username.t, value :: binary, meta :: Meta.t)
-      :: {:ok, Username.t} | {:error, struct}
+      :: {:ok, Meta.t, Username.t} | {:error, struct}
     def decode(_, value, meta), do: Username.decode(value, meta)
   end
 

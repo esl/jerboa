@@ -56,7 +56,7 @@ defmodule Jerboa.Format.Header.Type do
     def decode(<<m::12>>),     do: {:error, UnknownMethodError.exception(method: m)}
   end
 
-  @spec encode(Meta.t) :: type :: binary
+  @spec encode(Meta.t) :: type :: <<_::14>>
   def encode(%Meta{params: %Params{class: x, method: y}}) do
     encode(Class.encode(x), Method.encode(y))
   end

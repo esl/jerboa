@@ -32,8 +32,7 @@ defmodule Jerboa.Client.Protocol.Binding do
     |> Format.encode()
   end
 
-  @spec params(:request | :indication)
-    :: {id :: binary, packet :: binary}
+  @spec params(:request | :indication) :: Params.t
   defp params(class) do
       Params.new()
       |> Params.put_class(class)

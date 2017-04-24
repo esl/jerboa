@@ -6,6 +6,7 @@ defmodule Jerboa.Client.Protocol.Send do
   alias Jerboa.Format.Body.Attribute.XORPeerAddress, as: XPA
   alias Jerboa.Format.Body.Attribute.Data
   alias Jerboa.Client
+  alias Jerboa.Client.Protocol
 
   @spec indication(peer :: Client.address, data :: binary)
     :: Protocol.indication

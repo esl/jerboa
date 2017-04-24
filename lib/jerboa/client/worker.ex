@@ -49,27 +49,26 @@ defmodule Jerboa.Client.Worker do
       server: opts[:server],
       credentials: Credentials.initial(opts[:username], opts[:secret])
     }
-    setup_logger_metadata(state)
-    Logger.debug fn -> "Initialized client" end
+    setup_logger_metadata(state.socket, state.server)
+    _ = Logger.debug "Initialized client"
     {:ok, state}
   end
 
   def handle_call(:bind, from, state) do
     {id, request} = Binding.request()
-    Logger.debug fn -> "Sending binding request to the server" end
+    _ = Logger.debug "Sending binding request to the server"
     send(request, state.server, state.socket)
     transaction = Transaction.new(from, id, binding_response_handler())
     {:noreply, add_transaction(state, transaction)}
   end
   def handle_call(:allocate, from, state) do
     if state.relay.address do
-      Logger.debug fn ->
-        "Allocation already present on the server, allocate request blocked"
-      end
+      _ = Logger.debug "Allocation already present on the server, " <>
+        "allocate request blocked"
       {:reply, {:ok, state.relay.address}, state}
     else
       {id, request} = Allocate.request(state.credentials)
-      Logger.debug fn -> "Sending allocate request to the server" end
+      _ = Logger.debug "Sending allocate request to the server"
       send(request, state.server, state.socket)
       transaction = Transaction.new(from, id, allocate_response_handler())
       {:noreply, add_transaction(state, transaction)}
@@ -78,14 +77,13 @@ defmodule Jerboa.Client.Worker do
   def handle_call(:refresh, from, state) do
     if state.relay.address do
       {id, request} = Refresh.request(state.credentials)
-      Logger.debug fn -> "Sending refresh request to the server" end
+      _ = Logger.debug "Sending refresh request to the server"
       send(request, state.server, state.socket)
       transaction = Transaction.new(from, id, refresh_response_handler())
       {:noreply, add_transaction(state, transaction)}
     else
-      Logger.debug fn ->
-        "No allocation present on the server, refresh request blocked"
-      end
+      _ = Logger.debug "No allocation present on the server, " <>
+        "refresh request blocked"
       {:reply, {:error, :no_allocation}, state}
     end
   end
@@ -98,9 +96,8 @@ defmodule Jerboa.Client.Worker do
       new_state = %{state | relay: new_relay} |> add_transaction(transaction)
       {:noreply, new_state}
     else
-      Logger.debug fn ->
-        "No allocation present on the server, create permission request blocked"
-      end
+      _ = Logger.debug "No allocation present on the server, " <>
+        "create permission request blocked"
       {:reply, {:error, :no_allocation}, state}
     end
   end
@@ -108,11 +105,11 @@ defmodule Jerboa.Client.Worker do
     formatted_peer = Client.format_address(peer)
     if has_permission?(state, peer) do
       indication = Send.indication(peer, data)
-      Logger.debug "Sending data to #{formatted_peer} via send indication"
+      _ = Logger.debug "Sending data to #{formatted_peer} via send indication"
       send(indication, state.server, state.socket)
       {:reply, :ok, state}
     else
-      Logger.debug "No permission installed for #{formatted_peer}, " <>
+      _ = Logger.debug "No permission installed for #{formatted_peer}, " <>
         "send indication blocked"
       {:reply, {:error, :no_permission}, state}
     end
@@ -129,19 +126,19 @@ defmodule Jerboa.Client.Worker do
 
   def handle_cast(:persist, state) do
     indication = Binding.indication()
-    Logger.debug fn -> "Sending binding indication to the server" end
+    _ = Logger.debug "Sending binding indication to the server"
     send(indication, state.server, state.socket)
     {:noreply, state}
   end
 
   def handle_info(:allocation_expired, state) do
-    Logger.debug fn -> "Allocation timed out" end
+    _ = Logger.debug "Allocation timed out"
     cancel_permission_timers(state.relay)
     new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
   def handle_info({:permission_expired, peer_addr}, state) do
-    Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
+    _ = Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
     new_relay = state.relay |> remove_permission(peer_addr)
     {:noreply, %{state | relay: new_relay}}
   end
@@ -151,7 +148,7 @@ defmodule Jerboa.Client.Worker do
     new_state =
       case find_transaction(state, params.identifier) do
         nil ->
-          handle_peer_data(state, params)
+          _ = handle_peer_data(state, params)
           state
         transaction ->
           state = handle_response(state, params, transaction)
@@ -170,7 +167,7 @@ defmodule Jerboa.Client.Worker do
 
   ## Internals
 
-  @spec send(packet :: binary, server :: Client.address, socket) :: state
+  @spec send(packet :: binary, server :: Client.address, socket) :: :ok
   defp send(packet, server, socket) do
     {address, port} = server
     :ok = UDP.send(socket, address, port, packet)
@@ -184,8 +181,8 @@ defmodule Jerboa.Client.Worker do
     %{state | credentials: creds, relay: relay}
   end
 
-  @spec setup_logger_metadata(state) :: any
-  defp setup_logger_metadata(%{socket: socket, server: server}) do
+  @spec setup_logger_metadata(UDP.socket, Client.address) :: any
+  defp setup_logger_metadata(socket, server) do
     {:ok, port} = :inet.port(socket)
     metadata = [jerboa_client: "#{inspect self()}:#{port}",
                 jerboa_server: Client.format_address(server)]
@@ -196,7 +193,7 @@ defmodule Jerboa.Client.Worker do
   defp update_allocation_timer(relay) do
     timer_ref = relay.timer_ref
     lifetime = relay.lifetime
-    if timer_ref do
+    _ = if timer_ref do
       Process.cancel_timer timer_ref
     end
     if lifetime do
@@ -213,7 +210,7 @@ defmodule Jerboa.Client.Worker do
       {:ok, peer, data} ->
         maybe_notify_subscribers(state, peer, data)
       :error ->
-        Logger.debug "Received unprocessable STUN message"
+        _ = Logger.debug "Received unprocessable STUN message"
     end
   end
 
@@ -268,7 +265,7 @@ defmodule Jerboa.Client.Worker do
     fn params, creds, relay ->
       case Allocate.eval_response(params, creds) do
         {:ok, relayed_address, lifetime} ->
-          Logger.debug fn ->
+          _ = Logger.debug fn ->
             "Received success allocate reponse, relayed address: " <>
               Client.format_address(relayed_address)
           end
@@ -280,7 +277,7 @@ defmodule Jerboa.Client.Worker do
           reply = {:ok, relayed_address}
           {reply, creds, new_relay}
         {:error, reason, new_creds} ->
-          Logger.debug fn ->
+          _ = Logger.debug fn ->
             "Error when receiving allocate response, reason: #{inspect reason}"
           end
           reply = {:error, reason}
@@ -294,7 +291,7 @@ defmodule Jerboa.Client.Worker do
     fn params, creds, relay ->
       case Refresh.eval_response(params, creds) do
         {:ok, lifetime} ->
-          Logger.debug fn ->
+          _ = Logger.debug fn ->
             "Received success refresh reponse, new lifetime: " <>
               "#{lifetime}"
           end
@@ -304,7 +301,7 @@ defmodule Jerboa.Client.Worker do
             |> update_allocation_timer()
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
-          Logger.debug fn ->
+          _ = Logger.debug fn ->
             "Error when receiving refresh response, reason: #{inspect reason}"
           end
           reply = {:error, reason}
@@ -318,15 +315,13 @@ defmodule Jerboa.Client.Worker do
     fn params, creds, relay ->
       case CreatePermission.eval_response(params, creds) do
         :ok ->
-          Logger.debug fn ->
-            "Received success create permission reponse"
-          end
+          _ = Logger.debug "Received success create permission reponse"
           new_relay =
             relay
             |> update_permissions(params.identifier)
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
-          Logger.debug fn ->
+          _ = Logger.debug fn ->
             "Error when receiving create permission response, " <>
               "reason: #{inspect reason}"
           end
@@ -348,7 +343,7 @@ defmodule Jerboa.Client.Worker do
     :: Permission.t
   def update_permission(%{transaction_id: transaction_id} = perm,
     transaction_id) do
-    if perm.acked?, do: Process.cancel_timer perm.timer_ref
+    _ = if perm.acked?, do: Process.cancel_timer perm.timer_ref
     timer_ref = Process.send_after self(),
       {:permission_expired, perm.peer_address}, @permission_expiry
     %Permission{perm | acked?: true, timer_ref: timer_ref}
