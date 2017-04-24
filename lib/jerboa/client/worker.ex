@@ -401,9 +401,11 @@ defmodule Jerboa.Client.Worker do
 
   @spec update_subscriber_ref(subscribers, pid, reference) :: subscribers
   defp update_subscriber_ref(subscribers, sub_pid, sub_ref) do
-    if Map.has_key?(subscribers, sub_pid) do
-      old_ref = Map.get(subscribers, sub_pid)
-      Process.demonitor(old_ref)
+    case Map.fetch(subscribers, sub_pid) do
+      {:ok, old_ref} ->
+        Process.demonitor(old_ref)
+      _ ->
+        :ok
     end
     Map.put(subscribers, sub_pid, sub_ref)
   end
