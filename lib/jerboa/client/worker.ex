@@ -151,6 +151,7 @@ defmodule Jerboa.Client.Worker do
     new_state =
       case find_transaction(state, params.identifier) do
         nil ->
+          handle_peer_data(state, params)
           state
         transaction ->
           state = handle_response(state, params, transaction)
@@ -200,6 +201,33 @@ defmodule Jerboa.Client.Worker do
     else
       relay
     end
+  end
+
+  @spec handle_peer_data(state, Params.t) :: any
+  defp handle_peer_data(state, params) do
+    case Data.eval_indication(params) do
+      {:ok, peer, data} ->
+        maybe_notify_subscribers(state, peer, data)
+      :error ->
+        Logger.debug "Received unprocessable STUN message"
+    end
+  end
+
+  @spec maybe_notify_subscribers(state, Client.address, binary) :: any
+  defp maybe_notify_subscribers(state, peer, data) do
+    if has_permission?(state, peer) do
+      notify_subscribers(state, peer, data)
+    end
+  end
+
+  @spec notify_subscribers(state, Client.address, binary) :: any
+  defp notify_subscribers(state, peer, data) do
+    {peer_addr, _} = peer
+    state.subscriptions
+    |> Map.get(peer_addr, [])
+    |> Enum.each(fn {sub_pid, _} ->
+      send sub_pid, {:peer_data, peer, data}
+    end)
   end
 
   ## Transactions
@@ -342,7 +370,7 @@ defmodule Jerboa.Client.Worker do
     %{relay | permissions: new_permissions ++ relay.permissions}
   end
 
-  @spec has_permission?(state, peer :: Client.ip) :: boolean
+  @spec has_permission?(state, peer :: Client.address) :: boolean
   defp has_permission?(state, {address, _port}) do
     Enum.any?(state.relay.permissions, fn perm ->
       perm.peer_address == address
