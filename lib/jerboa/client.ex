@@ -196,6 +196,33 @@ defmodule Jerboa.Client do
   end
 
   @doc """
+  Blocks the calling process until it receives the data from the given
+  peer
+
+  Calling process needs to be subscribed to this peer's data
+  before calling this function, otherwise it will always time out.
+
+  Accepts timeout in milliseconds as optional argument (defualt is 5000),
+  may be also atom `:infinity`.
+
+  This function simply uses subscriptions mechanism.
+  It implies lack of knowledge about permissions installed for the given
+  peer, thus if there is no permission, the function will most likely
+  time out.
+  """
+  @spec recv(t, peer_addr :: Client.ip)
+  :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
+  def recv(client, peer_addr, timeout \\ 5_000) do
+    receive do
+      {:peer_data, {^peer_addr, _} = peer, data} ->
+        {:ok, peer, data}
+    after
+      timeout ->
+        {:error, :timeout}
+    end
+  end
+
+  @doc """
   Stops the client
   """
   @spec stop(t) :: :ok | {:error, error}
