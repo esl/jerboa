@@ -159,6 +159,10 @@ defmodule Jerboa.Client.Worker do
       end
     {:noreply, new_state}
   end
+  def handle_info({:DOWN, ref, _, _, _}, state) do
+    new_state = remove_subscription(state, ref)
+    {:noreply, new_state}
+  end
 
   def terminate(_, state) do
     :ok = UDP.close(state.socket)
@@ -416,9 +420,25 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec remove_subscriber(subscribers, pid) :: subscribers
-  defp remove_subscriber(subscribers, sub_pid) do
+  @spec remove_subscription(state, sub_ref :: reference) :: state
+  defp remove_subscription(state, sub_ref) do
+    new_subscriptions =
+      state.subscriptions
+      |> Enum.reduce(%{}, fn {peer_addr, subscribers}, acc ->
+        new_subscribers = remove_subscriber(subscribers, sub_ref)
+        maybe_put_subscribers(acc, peer_addr, new_subscribers)
+      end)
+    %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec remove_subscriber(subscribers, pid | reference) :: subscribers
+  defp remove_subscriber(subscribers, sub_pid) when is_pid(sub_pid) do
     Map.delete(subscribers, sub_pid)
+  end
+  defp remove_subscriber(subscribers, sub_ref) when is_reference(sub_ref) do
+    subscribers
+    |> Enum.reject(fn {_, ref} -> ref == sub_ref end)
+    |> Enum.into(%{})
   end
 
   @spec update_subscriptions(state, Client.ip, subscribers) :: state
@@ -430,5 +450,15 @@ defmodule Jerboa.Client.Worker do
         Map.put(state.subscriptions, peer_addr, subscribers)
       end
     %{state | subscriptions: new_subscriptions}
+  end
+
+  @spec maybe_put_subscribers(%{Client.ip => subscribers}, Client.ip, subscribers)
+    :: %{Client.ip => subscribers}
+  defp maybe_put_subscribers(subscriptions, peer_addr, subscribers) do
+    if Enum.empty?(subscribers) do
+      subscriptions
+      else
+        Map.put(subscriptions, peer_addr, subscribers)
+      end
   end
 end
