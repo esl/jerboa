@@ -40,7 +40,8 @@ defmodule Jerboa.Format.Body.Attribute.DontFragment do
   def encode, do: <<>>
 
   @doc false
-  @spec decode(value :: binary, meta :: Meta.t) :: {:ok, t} | {:error, struct}
+  @spec decode(value :: binary, meta :: Meta.t)
+    :: {:ok, Meta.t, t} | {:error, struct}
   def decode(<<>>, meta), do: {:ok, meta, %__MODULE__{}}
   def decode(_, _), do: {:error, ValuePresentError.exception()}
 end

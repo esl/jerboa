@@ -4,7 +4,7 @@ defmodule Jerboa.Client.Credentials do
 
   defstruct [:username, :realm, :secret, :nonce]
 
-  @type t :: Initial.t | Final.t
+  @type t :: __MODULE__.Initial.t | __MODULE__.Final.t
 
   defmodule Initial do
     @moduledoc false
@@ -30,13 +30,13 @@ defmodule Jerboa.Client.Credentials do
     }
   end
 
-  @spec initial(String.t, String.t) :: Initial.t
+  @spec initial(String.t, String.t) :: __MODULE__.Initial.t
   def initial(username, secret)
     when is_binary(username) and is_binary(secret) do
     %Initial{username: username, secret: secret}
   end
 
-  @spec finalize(Initial.t, String.t, String.t) :: Final.t
+  @spec finalize(__MODULE__.Initial.t, String.t, String.t) :: __MODULE__.Final.t
   def finalize(%Initial{} = creds, realm, nonce)
     when is_binary(realm) and is_binary(nonce) do
     %Final{

@@ -41,7 +41,9 @@ defmodule Jerboa.Params do
   """
   @spec new :: t
   def new do
-    %__MODULE__{identifier: generate_id()}
+    %__MODULE__{class: :request,
+                method: :binding,
+                identifier: generate_id()}
   end
 
   @doc """
@@ -113,7 +115,7 @@ defmodule Jerboa.Params do
 
   Returns `nil` if attribute is not present.
   """
-  @spec get_attr(t, attr_name :: module) :: Attribute.t
+  @spec get_attr(t, attr_name :: module) :: Attribute.t | nil
   def get_attr(params, attr_name) do
     params.attributes
     |> Enum.find(fn a -> Attribute.name(a) === attr_name end)

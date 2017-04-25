@@ -7,9 +7,11 @@ defmodule Jerboa.Format.Meta do
 
   alias Jerboa.Params
 
+  # we assign `:params` to `Params.new()` at compile time to avoid
+  # dialyzer warnings
   defstruct [header: <<>>, body: <<>>, length: 0, extra: <<>>,
              message_integrity: <<>>, length_up_to_integrity: 0,
-             options: [], params: %Params{}]
+             options: [], params: Params.new()]
 
   # Fields
   # * `:header`- binary header of a message

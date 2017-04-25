@@ -240,7 +240,8 @@ defmodule Jerboa.Client do
   @spec request(t, term) :: (() -> {:error, error} | term)
   defp request(client, req), do: fn -> GenServer.call(client, req) end
 
-  @spec maybe_retry(t, term) :: {:error, error} | term
+  @spec maybe_retry(t, request) :: {:error, error} | term when
+    request: :allocate | :refresh | {:create_permission, [Client.ip, ...]}
   defp maybe_retry(client, req) do
     call = request(client, req)
     case call.() do

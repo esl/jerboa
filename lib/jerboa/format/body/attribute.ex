@@ -44,7 +44,7 @@ defmodule Jerboa.Format.Body.Attribute do
   def name(%{__struct__: name}), do: name
 
   @doc false
-  @spec encode(Meta.t, struct) :: binary
+  @spec encode(Meta.t, struct) :: {Meta.t, <<_::32, _::_ * 8>>}
   def encode(meta, attr) do
     {meta, value} = Encoder.encode(attr, meta)
     type = Encoder.type_code(attr)

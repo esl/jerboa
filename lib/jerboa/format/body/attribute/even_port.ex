@@ -39,7 +39,7 @@ defmodule Jerboa.Format.Body.Attribute.EvenPort do
   end
 
   @doc false
-  @spec encode(t) :: binary
+  @spec encode(t) :: <<_::8>>
   def encode(%__MODULE__{reserved?: true}) do
     encode_bit(1)
   end
@@ -47,7 +47,7 @@ defmodule Jerboa.Format.Body.Attribute.EvenPort do
     encode_bit(0)
   end
 
-  @spec encode_bit(0 | 1) :: binary
+  @spec encode_bit(0 | 1) :: <<_::8>>
   defp encode_bit(bit), do: <<bit::1, 0::7>>
 
   @doc false
