@@ -9,7 +9,7 @@ defmodule Jerboa.Client.Protocol.SendTest do
 
   test "indication/2 returns encoded, not signed Send indication" do
     peer_addr = {127, 0, 0, 1}
-    peer_port = 12345
+    peer_port = 12_345
     data = "alicehasacat"
 
     indication = Send.indication({peer_addr, peer_port}, data)

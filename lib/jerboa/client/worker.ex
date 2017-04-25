@@ -105,7 +105,9 @@ defmodule Jerboa.Client.Worker do
     formatted_peer = Client.format_address(peer)
     if has_permission?(state, peer) do
       indication = Send.indication(peer, data)
-      _ = Logger.debug "Sending data to #{formatted_peer} via send indication"
+      _ = Logger.debug fn ->
+        "Sending data to #{formatted_peer} via send indication"
+      end
       send(indication, state.server, state.socket)
       {:reply, :ok, state}
     else

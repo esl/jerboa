@@ -130,12 +130,12 @@ defmodule Jerboa.Format.MessageIntegrity do
     [modify_header_length(header), body]
   end
 
-  @spec modify_header_length(header :: <<_::32, _::_*8>>) :: <<_::32, _::_*8>>
+  @spec modify_header_length(header :: <<_::32, _::_ * 8>>) :: <<_::32, _::_ * 8>>
   defp modify_header_length(<<0::2, type::14, length::16, rest::binary>>) do
     <<0::2, type::14, (length + @attr_length)::16, rest::binary>>
   end
 
-  @spec attribute(hash :: binary) :: attribute :: <<_::32, _::_*8>>
+  @spec attribute(hash :: binary) :: attribute :: <<_::32, _::_ * 8>>
   defp attribute(hash) do
     <<@type_code::16, @hash_length::16, hash::binary>>
   end
