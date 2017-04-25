@@ -5,19 +5,20 @@ defmodule Jerboa.Format.Body.Attribute.RequestedTransport do
   """
 
   alias Jerboa.Format.Body.Attribute.{Encoder, Decoder}
-  alias Jerboa.Format.RequestedTransport.{ProtocolError,
-                                          LengthError}
+  alias Jerboa.Format.RequestedTransport.LengthError
   alias Jerboa.Format.Meta
 
   defstruct protocol: :udp
 
-  @type protocol :: :udp
+  @type protocol :: :udp | :unknown
   @type protocol_code :: 17
 
   @typedoc """
   Represents transport requested for allocation
 
-  Currently only `:udp` is a valid value.
+  Currently only `:udp` is a valid protocol value. This struct may also hold
+  atom `:unknown` which means that Jerboa does not know given protocol number,
+  but the attribute is formatteed correctly.
   """
   @type t :: %__MODULE__{
     protocol: protocol
@@ -56,7 +57,7 @@ defmodule Jerboa.Format.Body.Attribute.RequestedTransport do
   def decode(<<proto_code::8, _::24>>, meta) do
     case code_to_proto(proto_code) do
       :error ->
-        {:error, ProtocolError.exception(protocol_code: proto_code)}
+        {:ok, meta, %__MODULE__{protocol: :unknown}}
       proto ->
         {:ok, meta, %__MODULE__{protocol: proto}}
     end

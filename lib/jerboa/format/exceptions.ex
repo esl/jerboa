@@ -411,29 +411,6 @@ defmodule Jerboa.Format.ErrorCode.LengthError do
   end
 end
 
-defmodule Jerboa.Format.RequestedTransport.ProtocolError do
-  @moduledoc """
-  Error indicating that protocol code found in REQUESTED-TRANSPORT
-  attribute is invalid
-
-  Jerboa currently supports only UDP transport (code 17), so any
-  other value results in this error. The list of available protocols
-  will be extended when TURN extensions will be implemented.
-
-  Exception struct fields:
-  * `:protocol_code` - protocol code found in STUN message
-  """
-
-  defexception [:message, :protocol_code]
-
-  def exception(opts) do
-    proto = opts[:protocol_code]
-    %__MODULE__{protocol_code: proto,
-                message: "Unknown protocol code found in " <>
-                  "REQUESTED-TRANSPORT attribute: #{proto}"}
-  end
-end
-
 defmodule Jerboa.Format.RequestedTransport.LengthError do
   @moduledoc """
   Error indicating that REQUESTED-TRANSPORT attribute's value

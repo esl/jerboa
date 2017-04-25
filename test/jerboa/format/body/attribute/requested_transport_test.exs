@@ -21,7 +21,7 @@ defmodule Jerboa.Format.Body.Attribute.RequestedTransportTest do
       proto_code = 1
       value = <<proto_code::8, 0::24>>
 
-      assert {:error, %ProtocolError{protocol_code: ^proto_code}} =
+      assert {:ok, _, %RequestedTransport{protocol: :unknown}} =
         RequestedTransport.decode(value, %Meta{})
     end
 
