@@ -19,6 +19,13 @@ defmodule Jerboa.Format.Body.Attribute.ReservationToken do
     value: binary
   }
 
+  @doc """
+  Create a new reservation token with a random value
+  """
+  def new do
+    %__MODULE__{value: :crypto.strong_rand_bytes(@byte_length)}
+  end
+
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.ReservationToken
     @type_code 0x0022
