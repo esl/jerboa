@@ -26,11 +26,11 @@ end
 ### Checklist of STUN/TURN/ICE methods supported by Jerboa's encoder/decoder
 
 - [x] Binding
-- [ ] Allocate
-- [ ] Refresh
-- [ ] Send
-- [ ] Data
-- [ ] CreatePermission
+- [x] Allocate
+- [x] Refresh
+- [x] Send
+- [x] Data
+- [x] CreatePermission
 - [ ] ChannelBind
 
 ### Checklist of STUN/TURN/ICE attributes supported by Jerboa's encoder/decoder
@@ -38,20 +38,20 @@ end
 #### Comprehension Required
 
 - [x] XOR-MAPPED-ADDRESS
-- [ ] MESSAGE-INTEGRITY
-- [ ] ERROR-CODE
+- [x] MESSAGE-INTEGRITY
+- [x] ERROR-CODE
 - [ ] UNKNOWN-ATTRIBUTES
-- [ ] REALM
-- [ ] NONCE
-- [ ] CHANNEL-NUMBER
-- [ ] LIFETIME
-- [ ] XOR-PEER-ADDRESS
-- [ ] DATA
-- [ ] XOR-RELAYED-ADDRESS
-- [ ] EVEN-PORT
-- [ ] REQUESTED-TRANSPORT
-- [ ] DONT-FRAGMENT
-- [ ] RESERVATION-TOKEN
+- [x] REALM
+- [x] NONCE
+- [x] CHANNEL-NUMBER
+- [x] LIFETIME
+- [x] XOR-PEER-ADDRESS
+- [x] DATA
+- [x] XOR-RELAYED-ADDRESS
+- [x] EVEN-PORT
+- [x] REQUESTED-TRANSPORT
+- [x] DONT-FRAGMENT
+- [x] RESERVATION-TOKEN
 - [ ] PRIORITY
 - [ ] USE-CANDIDATE
 - [ ] ICE-CONTROLLED
