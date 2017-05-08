@@ -53,7 +53,7 @@ defmodule Jerboa.Client do
 
   @type t :: pid
   @type port_no :: :inet.port_number
-  @type ip :: :inet.ip_address
+  @type ip :: :inet.ip4_address
   @type address :: {ip, port_no}
   @type start_opts :: [start_opt]
   @type start_opt :: {:server, address}
