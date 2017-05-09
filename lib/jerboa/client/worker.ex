@@ -165,6 +165,7 @@ defmodule Jerboa.Client.Worker do
 
   def terminate(_, state) do
     :ok = UDP.close(state.socket)
+    _ = Logger.debug "Terminating"
   end
 
   ## Internals
@@ -258,6 +259,17 @@ defmodule Jerboa.Client.Worker do
   defp binding_response_handler do
     fn params, creds, relay ->
       reply = Binding.eval_response(params)
+      case reply do
+        {:ok, mapped_address} ->
+          _ = Logger.debug fn ->
+            "Received success binding response, mapped address: " <>
+              Client.format_address(mapped_address)
+          end
+        {:error, reason} ->
+          _ = Logger.debug fn ->
+            "Error when receiving binding response, reason: #{inspect reason}"
+          end
+      end
       {reply, creds, relay}
     end
   end
