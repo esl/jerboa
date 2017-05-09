@@ -59,6 +59,8 @@ defmodule Jerboa.Client do
   @type start_opt :: {:server, address}
                    | {:username, String.t}
                    | {:secret, String.t}
+  @type allocate_opts :: [allocate_opt]
+  @type allocate_opt :: {:even_port, boolean}
   @type error :: :bad_response
                | :no_allocation
                | Jerboa.Format.Body.Attribute.ErrorCode.name
@@ -106,10 +108,17 @@ defmodule Jerboa.Client do
   @doc """
   Creates allocation on the server or returns relayed transport
   address if client already has an allocation
+
+  ## Options
+
+  * `:even_port` - optional - if set to `true`, EVEN-PORT attribute
+    will be included in the request, which prompts the server to
+    allocate even port number
   """
   @spec allocate(t) :: {:ok, address} | {:error, error}
-  def allocate(client) do
-    call = request(client, :allocate)
+  @spec allocate(t, allocate_opts) :: {:ok, address} | {:error, error}
+  def allocate(client, opts \\ []) do
+    call = request(client, {:allocate, opts})
     case call.() do
       {:error, :stale_nonce} -> call.()
       {:error, :unauthorized} -> call.()

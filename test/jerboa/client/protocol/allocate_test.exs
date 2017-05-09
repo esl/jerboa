@@ -9,22 +9,43 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
   alias Jerboa.Test.Helper.Credentials, as: CH
   alias Jerboa.Format.Body.Attribute.XORMappedAddress, as: XMA
   alias Jerboa.Format.Body.Attribute.XORRelayedAddress, as: XRA
-  alias Jerboa.Format.Body.Attribute.{Lifetime, ErrorCode, Nonce, Realm}
+  alias Jerboa.Format.Body.Attribute.{Lifetime, ErrorCode, Nonce, Realm,
+                                      EvenPort}
 
-  test "request/1 returns valid allocate request signed with credentials" do
-    creds = CH.final()
+  describe "request/2" do
+    test "returns valid allocate request signed with credentials" do
+      creds = CH.final()
 
-    {id, request} = Allocate.request(creds)
-    params = Protocol.decode!(request, creds)
+      {id, request} = Allocate.request(creds, [])
+      params = Protocol.decode!(request, creds)
 
-    assert params.identifier == id
-    assert params.class == :request
-    assert params.method == :allocate
-    assert params.signed?
-    assert params.verified?
-    assert PH.username(params) == creds.username
-    assert PH.realm(params) == creds.realm
-    assert PH.nonce(params) == creds.nonce
+      assert params.identifier == id
+      assert params.class == :request
+      assert params.method == :allocate
+      assert params.signed?
+      assert params.verified?
+      assert nil == Params.get_attr(params, EvenPort)
+      assert PH.username(params) == creds.username
+      assert PH.realm(params) == creds.realm
+      assert PH.nonce(params) == creds.nonce
+    end
+
+    test "returns valid allocate request with EVEN-PORT attribute" do
+      creds = CH.final()
+
+      {id, request} = Allocate.request(creds, even_port: true)
+      params = Protocol.decode!(request, creds)
+
+      assert params.identifier == id
+      assert params.class == :request
+      assert params.method == :allocate
+      assert params.signed?
+      assert params.verified?
+      assert %EvenPort{reserved?: false} == Params.get_attr(params, EvenPort)
+      assert PH.username(params) == creds.username
+      assert PH.realm(params) == creds.realm
+      assert PH.nonce(params) == creds.nonce
+    end
   end
 
   describe "eval_response/2" do

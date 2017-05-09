@@ -5,14 +5,14 @@ defmodule Jerboa.Client.Protocol.Allocate do
   alias Jerboa.Format.Body.Attribute.XORMappedAddress, as: XMA
   alias Jerboa.Format.Body.Attribute.XORRelayedAddress, as: XRA
   alias Jerboa.Format.Body.Attribute.{RequestedTransport, Lifetime, Realm,
-                                      Nonce, ErrorCode}
+                                      Nonce, ErrorCode, EvenPort}
   alias Jerboa.Client
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Credentials
 
-  @spec request(Credentials.t) :: Protocol.request
-  def request(creds) do
-    params = params(creds)
+  @spec request(Credentials.t, Client.allocate_opts) :: Protocol.request
+  def request(creds, opts) do
+    params = params(creds, opts)
     Protocol.encode_request(params, creds)
   end
 
@@ -35,13 +35,19 @@ defmodule Jerboa.Client.Protocol.Allocate do
     end
   end
 
-  @spec params(Credentials.t) :: Params.t
-  defp params(creds) do
-    creds
-    |> Protocol.base_params()
-    |> Params.put_class(:request)
-    |> Params.put_method(:allocate)
-    |> Params.put_attr(%RequestedTransport{})
+  @spec params(Credentials.t, Client.allocate_opts) :: Params.t
+  defp params(creds, opts) do
+    params =
+      creds
+      |> Protocol.base_params()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%RequestedTransport{})
+    if opts[:even_port] do
+      params |> Params.put_attr(%EvenPort{reserved?: false})
+    else
+      params
+    end
   end
 
   @spec eval_failure(resp :: Params.t, Credentials.t)

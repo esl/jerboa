@@ -61,13 +61,13 @@ defmodule Jerboa.Client.Worker do
     transaction = Transaction.new(from, id, binding_response_handler())
     {:noreply, add_transaction(state, transaction)}
   end
-  def handle_call(:allocate, from, state) do
+  def handle_call({:allocate, opts}, from, state) do
     if state.relay.address do
       _ = Logger.debug "Allocation already present on the server, " <>
         "allocate request blocked"
       {:reply, {:ok, state.relay.address}, state}
     else
-      {id, request} = Allocate.request(state.credentials)
+      {id, request} = Allocate.request(state.credentials, opts)
       _ = Logger.debug "Sending allocate request to the server"
       send(request, state.server, state.socket)
       transaction = Transaction.new(from, id, allocate_response_handler())
