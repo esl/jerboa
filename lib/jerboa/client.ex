@@ -60,7 +60,7 @@ defmodule Jerboa.Client do
                    | {:username, String.t}
                    | {:secret, String.t}
   @type allocate_opts :: [allocate_opt]
-  @type allocate_opt :: {:even_port, boolean}
+  @type allocate_opt :: {:even_port, boolean} | {:reserve, boolean}
   @type error :: :bad_response
                | :no_allocation
                | Jerboa.Format.Body.Attribute.ErrorCode.name
@@ -114,6 +114,9 @@ defmodule Jerboa.Client do
   * `:even_port` - optional - if set to `true`, EVEN-PORT attribute
     will be included in the request, which prompts the server to
     allocate even port number
+  * `:reserve` - optional - if set to `true`, prompts the server to allocate
+    an even port, reserve next highest port number, and return a reservation
+    token which can be later used to create an allocation on reserved port
   """
   @spec allocate(t) :: {:ok, address} | {:error, error}
   @spec allocate(t, allocate_opts) :: {:ok, address} | {:error, error}

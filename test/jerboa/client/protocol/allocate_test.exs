@@ -10,7 +10,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
   alias Jerboa.Format.Body.Attribute.XORMappedAddress, as: XMA
   alias Jerboa.Format.Body.Attribute.XORRelayedAddress, as: XRA
   alias Jerboa.Format.Body.Attribute.{Lifetime, ErrorCode, Nonce, Realm,
-                                      EvenPort}
+                                      EvenPort, ReservationToken}
 
   describe "request/2" do
     test "returns valid allocate request signed with credentials" do
@@ -46,10 +46,27 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
       assert PH.realm(params) == creds.realm
       assert PH.nonce(params) == creds.nonce
     end
+
+    test "returns valid allocate request with reserved EVEN-PORT attribute" do
+      creds = CH.final()
+
+      {id, request} = Allocate.request(creds, reserve: true)
+      params = Protocol.decode!(request, creds)
+
+      assert params.identifier == id
+      assert params.class == :request
+      assert params.method == :allocate
+      assert params.signed?
+      assert params.verified?
+      assert %EvenPort{reserved?: true} == Params.get_attr(params, EvenPort)
+      assert PH.username(params) == creds.username
+      assert PH.realm(params) == creds.realm
+      assert PH.nonce(params) == creds.nonce
+    end
   end
 
   describe "eval_response/2" do
-    test "returns relayed address and lifetime on successful allocate reposnse" do
+    test "returns relayed address and lifetime on successful allocate response" do
       creds = CH.final()
       address = {127, 0, 0, 1}
       port = 33_333
@@ -64,7 +81,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(XMA.new(address, port))
 
       assert {:ok, {address, port}, lifetime} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns :bad_response on invalid STUN method" do
@@ -82,7 +99,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(XMA.new(address, port))
 
       assert {:error, :bad_response, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns :bad_response without XOR-RELAYED-ADDRESS" do
@@ -99,7 +116,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(XMA.new(address, port))
 
       assert {:error, :bad_response, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns :bad_response without XOR-MAPPED-ADDRESS" do
@@ -116,7 +133,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(XRA.new(address, port))
 
       assert {:error, :bad_response, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns :bad_response without LIFETIME" do
@@ -132,7 +149,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(XMA.new(address, port))
 
       assert {:error, :bad_response, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns :bad_response on failure without ERROR-CODE" do
@@ -144,7 +161,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_method(:allocate)
 
       assert {:error, :bad_response, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns creds with updated nonce on :stale_nonce error" do
@@ -159,7 +176,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(%ErrorCode{name: :stale_nonce})
 
       assert {:error, :stale_nonce, %{creds | nonce: new_nonce}} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
     end
 
     test "returns complete creds on :unauthorized" do
@@ -176,7 +193,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(%ErrorCode{name: :unauthorized})
 
       assert {:error, :unauthorized, creds} =
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
       assert Credentials.complete?(creds)
       assert %{realm: ^realm, nonce: ^nonce} = creds
     end
@@ -195,7 +212,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_attr(%ErrorCode{name: :unauthorized})
 
       assert {:error, :unauthorized, creds} ==
-        Allocate.eval_response(params, creds)
+        Allocate.eval_response(params, creds, [])
       end
 
     test "returns error name and unchanged creds on other errors" do
@@ -208,7 +225,65 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
         |> Params.put_method(:allocate)
         |> Params.put_attr(%ErrorCode{name: error})
 
-      assert {:error, error, creds} == Allocate.eval_response(params, creds)
+      assert {:error, error, creds} == Allocate.eval_response(params, creds, [])
+    end
+
+    test "returns :bad_response on response without reservation token" do
+      creds = CH.final()
+      address = {127, 0, 0, 1}
+      port = 33_333
+      lifetime = 600
+
+      params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:allocate)
+        |> Params.put_attr(%Lifetime{duration: lifetime})
+        |> Params.put_attr(XRA.new(address, port))
+        |> Params.put_attr(XMA.new(address, port))
+
+      assert {:error, :bad_response, creds} ==
+        Allocate.eval_response(params, creds, [reserve: true])
+    end
+
+    test "returns reservation token if it was requested" do
+      creds = CH.final()
+      address = {127, 0, 0, 1}
+      port = 33_333
+      lifetime = 600
+      token = "12345678"
+
+      params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:allocate)
+        |> Params.put_attr(%Lifetime{duration: lifetime})
+        |> Params.put_attr(XRA.new(address, port))
+        |> Params.put_attr(XMA.new(address, port))
+        |> Params.put_attr(%ReservationToken{value: token})
+
+      assert {:ok, {address, port}, lifetime, token} ==
+        Allocate.eval_response(params, creds, [reserve: true])
+    end
+
+    test "doesn't return reservation token if it wasn't request" do
+      creds = CH.final()
+      address = {127, 0, 0, 1}
+      port = 33_333
+      lifetime = 600
+      token = "12345678"
+
+      params =
+        Params.new()
+        |> Params.put_class(:success)
+        |> Params.put_method(:allocate)
+        |> Params.put_attr(%Lifetime{duration: lifetime})
+        |> Params.put_attr(XRA.new(address, port))
+        |> Params.put_attr(XMA.new(address, port))
+        |> Params.put_attr(%ReservationToken{value: token})
+
+      assert {:ok, {address, port}, lifetime} ==
+        Allocate.eval_response(params, creds, [])
     end
   end
 end

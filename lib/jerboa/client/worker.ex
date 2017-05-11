@@ -70,7 +70,7 @@ defmodule Jerboa.Client.Worker do
       {id, request} = Allocate.request(state.credentials, opts)
       _ = Logger.debug "Sending allocate request to the server"
       send(request, state.server, state.socket)
-      transaction = Transaction.new(from, id, allocate_response_handler())
+      transaction = Transaction.new(from, id, allocate_response_handler(opts))
       {:noreply, add_transaction(state, transaction)}
     end
   end
@@ -274,20 +274,24 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec allocate_response_handler :: Transaction.handler
-  defp allocate_response_handler do
+  @spec allocate_response_handler(Client.allocate_opts) :: Transaction.handler
+  defp allocate_response_handler(opts) do
     fn params, creds, relay ->
-      case Allocate.eval_response(params, creds) do
+      case Allocate.eval_response(params, creds, opts) do
+        {:ok, relayed_address, lifetime, reservation_token} ->
+          _ = Logger.debug fn ->
+            "Received success allocate reponse with reservation token, " <>
+              "relayed address: " <> Client.format_address(relayed_address)
+          end
+          new_relay = init_new_relay(relay, relayed_address, lifetime)
+          reply = {:ok, relayed_address, reservation_token}
+          {reply, creds, new_relay}
         {:ok, relayed_address, lifetime} ->
           _ = Logger.debug fn ->
             "Received success allocate reponse, relayed address: " <>
               Client.format_address(relayed_address)
           end
-          new_relay =
-            relay
-            |> Map.put(:address, relayed_address)
-            |> Map.put(:lifetime, lifetime)
-            |> update_allocation_timer()
+          new_relay = init_new_relay(relay, relayed_address, lifetime)
           reply = {:ok, relayed_address}
           {reply, creds, new_relay}
         {:error, reason, new_creds} ->
@@ -298,6 +302,13 @@ defmodule Jerboa.Client.Worker do
           {reply, new_creds, relay}
       end
     end
+  end
+
+  defp init_new_relay(old_relay, relayed_address, lifetime) do
+    old_relay
+    |> Map.put(:address, relayed_address)
+    |> Map.put(:lifetime, lifetime)
+    |> update_allocation_timer()
   end
 
   @spec refresh_response_handler :: Transaction.handler
