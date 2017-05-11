@@ -76,6 +76,9 @@ defmodule Jerboa.Client.Protocol.Allocate do
       |> Params.put_method(:allocate)
       |> Params.put_attr(%RequestedTransport{})
     cond do
+      opts[:reservation_token] ->
+        token = opts[:reservation_token]
+        params |> Params.put_attr(%ReservationToken{value: token})
       opts[:reserve] == true ->
         params |> Params.put_attr(%EvenPort{reserved?: true})
       opts[:even_port] == true ->

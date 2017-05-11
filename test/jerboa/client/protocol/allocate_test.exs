@@ -63,6 +63,25 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
       assert PH.realm(params) == creds.realm
       assert PH.nonce(params) == creds.nonce
     end
+
+    test "returns valid allocate request with RESERVATION-TOKEN attribute" do
+      creds = CH.final()
+      token = <<0::8*8>> # token must be 8 bytes long
+
+      {id, request} = Allocate.request(creds, reservation_token: token)
+      params = Protocol.decode!(request, creds)
+
+      assert params.identifier == id
+      assert params.class == :request
+      assert params.method == :allocate
+      assert params.signed?
+      assert params.verified?
+      assert %ReservationToken{value: token} ==
+        Params.get_attr(params, ReservationToken)
+      assert PH.username(params) == creds.username
+      assert PH.realm(params) == creds.realm
+      assert PH.nonce(params) == creds.nonce
+    end
   end
 
   describe "eval_response/2" do

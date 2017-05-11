@@ -184,7 +184,7 @@ defmodule Jerboa.Client.Worker do
     %{state | credentials: creds, relay: relay}
   end
 
-  @spec setup_logger_metadata(UDP.socket, Client.address) :: any
+  @spec setup_logger_metadata(UDP.socket, Client.address) :: :ok
   defp setup_logger_metadata(socket, server) do
     {:ok, port} = :inet.port(socket)
     metadata = [jerboa_client: "#{inspect self()}:#{port}",
