@@ -279,21 +279,10 @@ defmodule Jerboa.Client.Worker do
     fn params, creds, relay ->
       case Allocate.eval_response(params, creds, opts) do
         {:ok, relayed_address, lifetime, reservation_token} ->
-          _ = Logger.debug fn ->
-            "Received success allocate reponse with reservation token, " <>
-              "relayed address: " <> Client.format_address(relayed_address)
-          end
-          new_relay = init_new_relay(relay, relayed_address, lifetime)
-          reply = {:ok, relayed_address, reservation_token}
-          {reply, creds, new_relay}
+          handle_allocate_success_with_token(relayed_address, lifetime,
+            reservation_token, relay, creds)
         {:ok, relayed_address, lifetime} ->
-          _ = Logger.debug fn ->
-            "Received success allocate reponse, relayed address: " <>
-              Client.format_address(relayed_address)
-          end
-          new_relay = init_new_relay(relay, relayed_address, lifetime)
-          reply = {:ok, relayed_address}
-          {reply, creds, new_relay}
+          handle_allocate_success(relayed_address, lifetime, relay, creds)
         {:error, reason, new_creds} ->
           _ = Logger.debug fn ->
             "Error when receiving allocate response, reason: #{inspect reason}"
@@ -302,6 +291,32 @@ defmodule Jerboa.Client.Worker do
           {reply, new_creds, relay}
       end
     end
+  end
+
+  @spec handle_allocate_success_with_token(Client.address, non_neg_integer,
+    binary, Relay.t, Credentials.t) :: {term, Credentials.t, Relay.t}
+  defp handle_allocate_success_with_token(relayed_address, lifetime,
+    reservation_token, relay, creds) do
+    _ = Logger.debug fn ->
+      "Received success allocate reponse with reservation token, " <>
+        "relayed address: " <> Client.format_address(relayed_address)
+    end
+    new_relay = init_new_relay(relay, relayed_address, lifetime)
+    reply = {:ok, relayed_address, reservation_token}
+    {reply, creds, new_relay}
+  end
+
+  @spec handle_allocate_success(Client.address, non_neg_integer, Relay.t,
+    Credentials.t) :: {term, Credentials.t, Relay.t}
+  defp handle_allocate_success(relayed_address, lifetime,
+    relay, creds) do
+    _ = Logger.debug fn ->
+      "Received success allocate reponse, relayed address: " <>
+        Client.format_address(relayed_address)
+    end
+    new_relay = init_new_relay(relay, relayed_address, lifetime)
+    reply = {:ok, relayed_address}
+    {reply, creds, new_relay}
   end
 
   defp init_new_relay(old_relay, relayed_address, lifetime) do

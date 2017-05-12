@@ -66,7 +66,7 @@ defmodule Jerboa.Client.Protocol.AllocateTest do
 
     test "returns valid allocate request with RESERVATION-TOKEN attribute" do
       creds = CH.final()
-      token = <<0::8*8>> # token must be 8 bytes long
+      token = <<0::8 * 8>> # token must be 8 bytes long
 
       {id, request} = Allocate.request(creds, reservation_token: token)
       params = Protocol.decode!(request, creds)
