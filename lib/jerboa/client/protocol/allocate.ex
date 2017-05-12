@@ -5,28 +5,31 @@ defmodule Jerboa.Client.Protocol.Allocate do
   alias Jerboa.Format.Body.Attribute.XORMappedAddress, as: XMA
   alias Jerboa.Format.Body.Attribute.XORRelayedAddress, as: XRA
   alias Jerboa.Format.Body.Attribute.{RequestedTransport, Lifetime, Realm,
-                                      Nonce, ErrorCode}
+                                      Nonce, ErrorCode, EvenPort,
+                                      ReservationToken}
   alias Jerboa.Client
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Credentials
 
-  @spec request(Credentials.t) :: Protocol.request
-  def request(creds) do
-    params = params(creds)
+  @spec request(Credentials.t, Client.allocate_opts) :: Protocol.request
+  def request(creds, opts) do
+    params = params(creds, opts)
     Protocol.encode_request(params, creds)
   end
 
-  @spec eval_response(response :: Params.t, Credentials.t)
+  @spec eval_response(response :: Params.t, Credentials.t, Client.allocate_opts)
     :: {:ok, relayed_address :: Client.address, lifetime :: non_neg_integer}
+     | {:ok, Client.address, non_neg_integer, reservation_token :: binary}
      | {:error, Client.error, Credentials.t}
-  def eval_response(params, creds) do
+  def eval_response(params, creds, opts) do
     with :allocate <- Params.get_method(params),
          :success <- Params.get_class(params),
          %{address: raddr, port: rport, family: :ipv4} <- Params.get_attr(params, XRA),
          %XMA{} <- Params.get_attr(params, XMA),
-         %{duration: lifetime} <- Params.get_attr(params, Lifetime) do
+         %{duration: lifetime} <- Params.get_attr(params, Lifetime),
+         :ok <- check_reservation_token(params, opts) do
       relayed_address = {raddr, rport}
-      {:ok, relayed_address, lifetime}
+      maybe_with_reservation_token(relayed_address, lifetime, params, opts)
     else
       :failure ->
         eval_failure(params, creds)
@@ -35,13 +38,54 @@ defmodule Jerboa.Client.Protocol.Allocate do
     end
   end
 
-  @spec params(Credentials.t) :: Params.t
-  defp params(creds) do
-    creds
-    |> Protocol.base_params()
-    |> Params.put_class(:request)
-    |> Params.put_method(:allocate)
-    |> Params.put_attr(%RequestedTransport{})
+  @spec check_reservation_token(Params.t, Client.allocate_opts) :: :ok | :error
+  defp check_reservation_token(params, opts) do
+    with {:ok, true} <- Keyword.fetch(opts, :reserve),
+         %ReservationToken{} <- Params.get_attr(params, ReservationToken) do
+      :ok
+    else
+      {:ok, _} ->
+        :ok
+      :error ->
+        :ok
+      _ ->
+        :error
+    end
+  end
+
+  @spec maybe_with_reservation_token(Client.address, non_neg_integer, Params.t,
+    Client.allocate_opts)
+    :: {:ok, relayed_address :: Client.address, lifetime :: non_neg_integer}
+     | {:ok, Client.address, non_neg_integer, reservation_token :: binary}
+  defp maybe_with_reservation_token(relayed_address, lifetime, params, opts) do
+    case Keyword.fetch(opts, :reserve) do
+      {:ok, true} ->
+         %ReservationToken{value: token} = Params.get_attr(params, ReservationToken)
+        {:ok, relayed_address, lifetime, token}
+        _ ->
+        {:ok, relayed_address, lifetime}
+    end
+  end
+
+  @spec params(Credentials.t, Client.allocate_opts) :: Params.t
+  defp params(creds, opts) do
+    params =
+      creds
+      |> Protocol.base_params()
+      |> Params.put_class(:request)
+      |> Params.put_method(:allocate)
+      |> Params.put_attr(%RequestedTransport{})
+    cond do
+      opts[:reservation_token] ->
+        token = opts[:reservation_token]
+        params |> Params.put_attr(%ReservationToken{value: token})
+      opts[:reserve] == true ->
+        params |> Params.put_attr(%EvenPort{reserved?: true})
+      opts[:even_port] == true ->
+        params |> Params.put_attr(%EvenPort{reserved?: false})
+      true ->
+        params
+    end
   end
 
   @spec eval_failure(resp :: Params.t, Credentials.t)

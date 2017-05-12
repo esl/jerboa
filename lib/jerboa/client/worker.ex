@@ -61,16 +61,16 @@ defmodule Jerboa.Client.Worker do
     transaction = Transaction.new(from, id, binding_response_handler())
     {:noreply, add_transaction(state, transaction)}
   end
-  def handle_call(:allocate, from, state) do
+  def handle_call({:allocate, opts}, from, state) do
     if state.relay.address do
       _ = Logger.debug "Allocation already present on the server, " <>
         "allocate request blocked"
       {:reply, {:ok, state.relay.address}, state}
     else
-      {id, request} = Allocate.request(state.credentials)
+      {id, request} = Allocate.request(state.credentials, opts)
       _ = Logger.debug "Sending allocate request to the server"
       send(request, state.server, state.socket)
-      transaction = Transaction.new(from, id, allocate_response_handler())
+      transaction = Transaction.new(from, id, allocate_response_handler(opts))
       {:noreply, add_transaction(state, transaction)}
     end
   end
@@ -184,7 +184,7 @@ defmodule Jerboa.Client.Worker do
     %{state | credentials: creds, relay: relay}
   end
 
-  @spec setup_logger_metadata(UDP.socket, Client.address) :: any
+  @spec setup_logger_metadata(UDP.socket, Client.address) :: :ok
   defp setup_logger_metadata(socket, server) do
     {:ok, port} = :inet.port(socket)
     metadata = [jerboa_client: "#{inspect self()}:#{port}",
@@ -274,22 +274,15 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec allocate_response_handler :: Transaction.handler
-  defp allocate_response_handler do
+  @spec allocate_response_handler(Client.allocate_opts) :: Transaction.handler
+  defp allocate_response_handler(opts) do
     fn params, creds, relay ->
-      case Allocate.eval_response(params, creds) do
+      case Allocate.eval_response(params, creds, opts) do
+        {:ok, relayed_address, lifetime, reservation_token} ->
+          handle_allocate_success_with_token(relayed_address, lifetime,
+            reservation_token, relay, creds)
         {:ok, relayed_address, lifetime} ->
-          _ = Logger.debug fn ->
-            "Received success allocate reponse, relayed address: " <>
-              Client.format_address(relayed_address)
-          end
-          new_relay =
-            relay
-            |> Map.put(:address, relayed_address)
-            |> Map.put(:lifetime, lifetime)
-            |> update_allocation_timer()
-          reply = {:ok, relayed_address}
-          {reply, creds, new_relay}
+          handle_allocate_success(relayed_address, lifetime, relay, creds)
         {:error, reason, new_creds} ->
           _ = Logger.debug fn ->
             "Error when receiving allocate response, reason: #{inspect reason}"
@@ -298,6 +291,39 @@ defmodule Jerboa.Client.Worker do
           {reply, new_creds, relay}
       end
     end
+  end
+
+  @spec handle_allocate_success_with_token(Client.address, non_neg_integer,
+    binary, Relay.t, Credentials.t) :: {term, Credentials.t, Relay.t}
+  defp handle_allocate_success_with_token(relayed_address, lifetime,
+    reservation_token, relay, creds) do
+    _ = Logger.debug fn ->
+      "Received success allocate reponse with reservation token, " <>
+        "relayed address: " <> Client.format_address(relayed_address)
+    end
+    new_relay = init_new_relay(relay, relayed_address, lifetime)
+    reply = {:ok, relayed_address, reservation_token}
+    {reply, creds, new_relay}
+  end
+
+  @spec handle_allocate_success(Client.address, non_neg_integer, Relay.t,
+    Credentials.t) :: {term, Credentials.t, Relay.t}
+  defp handle_allocate_success(relayed_address, lifetime,
+    relay, creds) do
+    _ = Logger.debug fn ->
+      "Received success allocate reponse, relayed address: " <>
+        Client.format_address(relayed_address)
+    end
+    new_relay = init_new_relay(relay, relayed_address, lifetime)
+    reply = {:ok, relayed_address}
+    {reply, creds, new_relay}
+  end
+
+  defp init_new_relay(old_relay, relayed_address, lifetime) do
+    old_relay
+    |> Map.put(:address, relayed_address)
+    |> Map.put(:lifetime, lifetime)
+    |> update_allocation_timer()
   end
 
   @spec refresh_response_handler :: Transaction.handler
