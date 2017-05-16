@@ -18,10 +18,12 @@ defmodule Jerboa.Format do
   @max_channel_number 0x7FFF
 
   @doc """
-  Encode a complete set of parameters into a binary suitable writing
-  to the network
+  Encode a complete set of STUN Params or ChannelData into a binary suitable
+  for writing to the network
 
   ## Calculating message integrity
+
+  > This section applies only to encoding `Jerboa.Params` struct.
 
   In order to calculate message integrity over encoded message,
   encoder must know three values: username (as in USERNAME attribute),
@@ -37,9 +39,11 @@ defmodule Jerboa.Format do
   is an integer.
 
   Note that passing these values in options list *won't add them to
-  message attributes list*.
+  message attributes list.
 
   ## Available options
+
+  > This section applies only to encoding `Jerboa.Params` struct.
 
   * `:secret` - secret used for calculating message integrity
   * `:username` - username used for calculating message integrity
@@ -47,13 +51,19 @@ defmodule Jerboa.Format do
   * `:realm` - realm used for calculating message integrity
     if REALM attribute can't be found in params struct
   """
-  @spec encode(Params.t, options :: Keyword.t) :: binary
-  def encode(params, options \\ []) do
+  @spec encode(Params.t | ChannelData.t, options :: Keyword.t) :: binary
+  def encode(params_or_channel_data, options \\ [])
+  def encode(%Params{} = params, options) do
     %Meta{params: params, options: options}
     |> Body.encode()
     |> Header.encode()
     |> MessageIntegrity.apply()
     |> concatenate()
+  end
+  def encode(%ChannelData{channel_number: number, data: data}, _)
+    when number in @min_channel_number..@max_channel_number and is_binary(data) do
+    length = byte_size(data)
+    <<number::16, length::16, data::binary>>
   end
 
   @doc """
@@ -84,7 +94,7 @@ defmodule Jerboa.Format do
 
   ## Verifying message integrity
 
-  This section applies only to STUN messages.
+  > This section applies only to STUN messages.
 
   Similarly to `encode/2` decoder first looks for username and realm
   in the decoded message attributes or in the options list if there are
@@ -176,7 +186,7 @@ defmodule Jerboa.Format do
     {:ok, meta.params, extra}
   end
 
-  @spec decode_channel_data(binary)
+  @spec decode_channel_data(<<_::32, _::_ * 8>>)
   :: {:ok, ChannelData.t}
    | {:ok, ChannelData.t, extra :: binary}
    | {:error, struct}

@@ -33,6 +33,33 @@ defmodule Jerboa.FormatTest do
       ## Then:
       assert Jerboa.Test.Helper.Format.bytes_for_body(bin) == 12
     end
+
+    test "fails given ChannelData with invalid number" do
+      ptest number: int(min: 0, max: 0x3FFF) do
+        channel_data = %ChannelData{channel_number: number, data: ""}
+
+        assert_raise FunctionClauseError, fn ->
+          Format.encode channel_data
+        end
+      end
+    end
+
+    test "fails given ChannelData with non-binary data field" do
+      channel_data = %ChannelData{channel_number: 0x4000, data: nil}
+
+      assert_raise FunctionClauseError, fn ->
+        Format.encode channel_data
+      end
+    end
+
+    test "works as opossite to decode/2 for ChannelData" do
+      ptest number: int(min: 0x4000, max: 0x7FFF), data: string() do
+        channel_data = %ChannelData{channel_number: number, data: data}
+
+        assert channel_data ==
+          channel_data |> Format.encode() |> Format.decode!()
+      end
+    end
   end
 
   describe "Format.decode/2" do
