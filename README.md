@@ -5,7 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/esl/jerboa/badge.svg?branch=master)](https://coveralls.io/github/esl/jerboa?branch=master)
 [![Ebert](https://ebertapp.io/github/esl/jerboa.svg)](https://ebertapp.io/github/esl/jerboa)
 
-[Documentation](https://hexdocs.pm/jerboa/0.1.0)
+[Documentation](https://hexdocs.pm/jerboa/0.2.0)
 
 
 STUN/TURN encoder, decoder and client library by [Erlang Solutions](https://www.erlang-solutions.com)
@@ -19,7 +19,7 @@ Jerboa is available on [Hex](https://hex.pm/packages/jerboa). To use it, just ad
 
 ```elixir
 def deps do
-  [{:jerboa, "~> 0.1.0"}]
+  [{:jerboa, "~> 0.2.0"}]
 end
 ```
 
