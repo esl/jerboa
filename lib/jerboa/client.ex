@@ -9,7 +9,9 @@ defmodule Jerboa.Client do
 
   (see `start/1` for configuration options)
 
-  ## Requesting server reflexive address
+  ## Basic usage
+
+  ### Requesting server reflexive address
 
   The `bind/1` issues a Binding request to a server and returns reflexive IP address and port.
   If returned message is not a valid STUN message or it doesn't include XOR Mapped Address
@@ -23,7 +25,7 @@ defmodule Jerboa.Client do
   Note that this is only an attempt, there is no guarantee that some router on the path
   won't rebind client's inside address and port.
 
-  ## Creating allocations
+  ### Creating allocations
 
   Allocation is a logical communication path between one client and multiple peers.
   In practice a socket is created on the server, which peers can send data to,
@@ -39,6 +41,36 @@ defmodule Jerboa.Client do
 
   Note that allocations have an expiration time (RFC recommends 10 minutes), To refresh
   an existing allocation one can use `refresh/1`.
+
+  ### Installing permissions
+
+  Once the allocation is created, you may install permissions for peers in order to exchange
+  data with them over relay. Permissions are created using `create_permission/2`:
+
+      create_permission client, {192, 168, 22, 111}
+      create_permission client, [{192, 168, 22, 111}, {212, 168, 33, 222}]
+
+  ### Sending and receiving data
+
+  After permission is installed, you may send and receive data from peer. To send
+  data you must simply call `send/3`, providing peer's address and data to be sent (a binary):
+
+      send client, {{192, 168, 22, 111}, 1234}, "Hello, world!"
+
+  Receiving data is handled using subscriptions mechanism. Once you subscribe to the data
+  (using `subscribe/3`) sent by some peer, it will be delivered to subscribing process
+  as a message in format:
+
+        {:peer_data, client :: pid, peer :: address, data :: binary}
+
+  Subscriptions imply that receiving data is asynchronous by default. There is a convenience
+  `recv/2` function, which will block calling process until it receives data from the given
+  peer address. `recv` accepts optional timeout in milliseconds (or atom `:infinity`), which
+  defaults to 5000.
+
+  Note that permissions installed do not affect subscriptions - if you subscribe to data from
+  peer which you've not installed permissions for, the data will never appear in subscribed
+  process' mailbox.
 
   ## Logging
 
@@ -91,10 +123,9 @@ defmodule Jerboa.Client do
   Sends Binding request to a server
 
   Returns reflexive address and port on successful response. Returns
-  error tuple if response from the server is invalid. Client process
-  crashes if response is not a valid STUN message.
+  error tuple if response from the server is invalid.
   """
-  @spec bind(t) :: {:ok, address} | {:error, :bad_response} | no_return
+  @spec bind(t) :: {:ok, address} | {:error, :bad_response}
   def bind(client) do
     request(client, :bind).()
   end
@@ -170,12 +201,15 @@ defmodule Jerboa.Client do
 
   Note that there are no guarantees that the data sent reaches
   the peer. TURN servers don't acknowledge Send indications.
+
+  Returns `{:error, :no_permission}` if there is no permission installed
+  for the given peer.
   """
   @spec send(t, peer :: address, data :: binary)
     :: :ok | {:error, :no_permission}
   def send(client, peer, data) do
     request(client, {:send, peer, data}).()
-    end
+  end
 
   @doc """
   Subscribes PID to data received from the given peer
@@ -231,7 +265,9 @@ defmodule Jerboa.Client do
   time out.
   """
   @spec recv(t, peer_addr :: Client.ip)
-  :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
+    :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
+  @spec recv(t, peer_addr :: Client.ip, timeout :: non_neg_integer | :infinity)
+    :: {:ok, peer :: Client.address, data :: binary} | {:error, :timeout}
   def recv(client, peer_addr, timeout \\ 5_000) do
     receive do
       {:peer_data, ^client, {^peer_addr, _} = peer, data} ->
