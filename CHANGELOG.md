@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## v0.2.0 - 2017-05-16
+
+### Added
+* encoding and decoding of TURN attributes and methods (without channels)
+* TURN client behaviour - allocations, permissions, sending and receiving data over relay
+
 ## v0.1.0 - 2017-02-21
 
 ### Added
