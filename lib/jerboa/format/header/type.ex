@@ -36,7 +36,13 @@ defmodule Jerboa.Format.Header.Type do
     @typedoc """
     The atom representing a STUN method
     """
-    @type t :: :binding | :allocate | :refresh | :send | :data | :create_permission
+    @type t :: :binding
+             | :allocate
+             | :refresh
+             | :send
+             | :data
+             | :create_permission
+             | :channel_bind
 
     @doc false
     def encode(:binding), do: <<0x001::12>>
@@ -45,6 +51,7 @@ defmodule Jerboa.Format.Header.Type do
     def encode(:send), do: <<0x006::12>>
     def encode(:data), do: <<0x007::12>>
     def encode(:create_permission), do: <<0x008::12>>
+    def encode(:channel_bind), do: <<0x009::12>>
 
     @doc false
     def decode(<<0x001::12>>), do: {:ok, :binding}
@@ -53,6 +60,7 @@ defmodule Jerboa.Format.Header.Type do
     def decode(<<0x006::12>>), do: {:ok, :send}
     def decode(<<0x007::12>>), do: {:ok, :data}
     def decode(<<0x008::12>>), do: {:ok, :create_permission}
+    def decode(<<0x009::12>>), do: {:ok, :channel_bind}
     def decode(<<m::12>>),     do: {:error, UnknownMethodError.exception(method: m)}
   end
 
