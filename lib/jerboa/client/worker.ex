@@ -10,7 +10,7 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client.Relay
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
-                                CreatePermission, Send, Data}
+                                CreatePermission, Send, Data, ChannelBind}
   alias Jerboa.Client.Transaction
 
   require Logger
@@ -97,6 +97,21 @@ defmodule Jerboa.Client.Worker do
     else
       _ = Logger.debug "No allocation present on the server, " <>
         "create permission request blocked"
+      {:reply, {:error, :no_allocation}, state}
+    end
+  end
+  def handle_call({:open_channel, peer}, from, state) do
+    if state.relay.address do
+      {id, request} = ChannelBind.request(state.credentials, peer, 0x4000)
+      send(request, state.server, state.socket)
+      {peer_addr, _} = peer
+      context = %{peer_addr: peer_addr}
+      transaction = Transaction.new(from, id, channel_bind_response_handler(),
+        context)
+      {:noreply, state |> add_transaction(transaction)}
+    else
+      _ = Logger.debug "No allocation present on the server, " <>
+        "channel bind request blocked"
       {:reply, {:error, :no_allocation}, state}
     end
   end
@@ -370,6 +385,27 @@ defmodule Jerboa.Client.Worker do
           end
           reply = {:error, reason}
           {reply,  new_creds, relay}
+      end
+    end
+  end
+
+  @spec channel_bind_response_handler :: Transaction.handler
+  defp channel_bind_response_handler do
+    fn params, creds, relay, %{peer_addr: peer_addr} ->
+      case ChannelBind.eval_response(params, creds) do
+        :ok ->
+          _ = Logger.debug "Received success channel bind response"
+          new_relay =
+            relay
+            |> add_permissions([peer_addr])
+          {:ok, creds, new_relay}
+        {:error, reason, new_creds} ->
+          _ = Logger.debug fn ->
+            "Error when receiving create permission response, " <>
+              "reason: #{inspect reason}"
+          end
+          reply = {:error, reason}
+          {reply, new_creds, relay}
       end
     end
   end

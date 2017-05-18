@@ -279,6 +279,26 @@ defmodule Jerboa.Client do
   end
 
   @doc """
+  Opens or refreshes a channel between client and one of the peers
+
+  Once the channel is opened, all communication with the peer will be
+  done via channel. It results in more efficient communication, because
+  channels require smaller message headers than STUN messages.
+
+  To exchange data via channel, you can use the same `send`, `subscribe`, and
+  friends API as in the regular TURN communication.
+
+  Opening a channel automatically installs a permission for the given peer.
+  However, note that permissions are valid for 5 minutes after installation,
+  whereas channels are valid for 10 minutes. It is required to refresh
+  permissions more often than channels.
+  """
+  @spec open_channel(t, peer :: Client.address) :: :ok | {:error, error}
+  def open_channel(client, peer) do
+    request(client, {:open_channel, peer}).()
+  end
+
+  @doc """
   Stops the client
   """
   @spec stop(t) :: :ok | {:error, error}
