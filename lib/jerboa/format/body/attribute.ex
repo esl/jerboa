@@ -8,7 +8,7 @@ defmodule Jerboa.Format.Body.Attribute do
                                       Username, Realm, ErrorCode, EvenPort,
                                       XORRelayedAddress, XORPeerAddress,
                                       RequestedTransport, DontFragment,
-                                      ReservationToken}
+                                      ReservationToken, ChannelNumber}
   alias Jerboa.Format.Meta
 
   defprotocol Encoder do
@@ -31,7 +31,8 @@ defmodule Jerboa.Format.Body.Attribute do
 
   @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
                 ErrorCode, XORRelayedAddress, XORPeerAddress,
-                RequestedTransport, DontFragment, EvenPort, ReservationToken]
+                RequestedTransport, DontFragment, EvenPort, ReservationToken,
+                ChannelNumber]
 
   @biggest_16 65_535
 

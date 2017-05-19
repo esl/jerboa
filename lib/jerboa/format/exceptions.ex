@@ -52,10 +52,12 @@ defmodule Jerboa.Format.First2BitsError do
   @moduledoc """
 
   Error indicating wrong value encoded in first two bits of STUN
-  message
+  or ChannelData message
 
-  A STUN message header must start with two zero (clear) bits. If it
-  doesn't this error is produced when decoding the message.
+  A STUN message header must start with two zero (clear) bits. A ChannelData
+  message must start with first bit set to zero, and second set to one. If none
+  of these holds true, this error is produced. This error also indicates
+  bitstring shorter than 2 bits.
 
   Exception struct fields:
 
@@ -68,8 +70,8 @@ defmodule Jerboa.Format.First2BitsError do
 
   def exception(opts) do
     %__MODULE__{bits: opts[:bits],
-                message: "the most significant two bits of a STUN " <>
-                  "message must be zeros"}
+                message: "two most significant bits of message have wrong " <>
+                  "value. Found #{inspect opts[:bits]}, expected 0b00 or 0b01"}
   end
 end
 
@@ -509,5 +511,26 @@ defmodule Jerboa.Format.ChannelNumber.First2BitsError do
     %__MODULE__{bits: opts[:bits],
                 message: "the two most significant bits of a TURN " <>
                          "CHANNEL-NUMBER must be 0b01"}
+  end
+end
+
+defmodule Jerboa.Format.ChannelDataLengthError do
+  @moduledoc """
+  Error indicating ChannelData message of invalid length
+
+  Each ChannelData message contains the length of its data field encoded in the
+  header. If data field is shorter than that declared in the header, it cannot
+  be decoded correctly and will produce this error.
+
+  Excepton struct fields:
+
+  * `:length` - actual length of message data field
+  """
+
+  defexception [:message, :length]
+
+  def exception(opts) do
+    %__MODULE__{length: opts[:length],
+                message: "channel data is shorter than specified length"}
   end
 end

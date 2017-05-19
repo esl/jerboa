@@ -5,11 +5,13 @@ defmodule Jerboa.FormatTest do
   alias Jerboa.Test.Helper.XORMappedAddress, as: XORMAHelper
 
   alias Jerboa.{Format, Params}
-  alias Format.{HeaderLengthError, BodyLengthError}
+  alias Format.{HeaderLengthError, BodyLengthError, First2BitsError,
+                ChannelDataLengthError}
   alias Jerboa.Format.Header.MagicCookie
   alias Jerboa.Format.Body.Attribute.{Username, Realm, Nonce}
   alias Jerboa.Format.Meta
   alias Jerboa.Format.Body.Attribute
+  alias Jerboa.ChannelData
 
   @magic MagicCookie.value
 
@@ -31,12 +33,54 @@ defmodule Jerboa.FormatTest do
       ## Then:
       assert Jerboa.Test.Helper.Format.bytes_for_body(bin) == 12
     end
+
+    test "fails given ChannelData with invalid number" do
+      ptest number: int(min: 0, max: 0x3FFF) do
+        channel_data = %ChannelData{channel_number: number, data: ""}
+
+        assert_raise FunctionClauseError, fn ->
+          Format.encode channel_data
+        end
+      end
+    end
+
+    test "fails given ChannelData with non-binary data field" do
+      channel_data = %ChannelData{channel_number: 0x4000, data: nil}
+
+      assert_raise FunctionClauseError, fn ->
+        Format.encode channel_data
+      end
+    end
+
+    test "works as opossite to decode/2 for ChannelData" do
+      ptest number: int(min: 0x4000, max: 0x7FFF), data: string() do
+        channel_data = %ChannelData{channel_number: number, data: data}
+
+        assert channel_data ==
+          channel_data |> Format.encode() |> Format.decode!()
+      end
+    end
   end
 
   describe "Format.decode/2" do
 
+    test "fails given empty binary" do
+      packet = <<>>
+
+      assert {:error, %First2BitsError{bits: ^packet}} = Format.decode packet
+    end
+
+    test "fails given packet with invalid first two bits" do
+      ptest first_two_val: int(min: 2, max: 3) do
+        first_two = <<first_two_val::2-unit(1)>>
+        packet = <<first_two::bits, 0::6-unit(1)>>
+
+      assert {:error, %First2BitsError{bits: ^first_two}} = Format.decode packet
+      end
+    end
+
     test "fails given packet with not enough bytes for header" do
-      ptest length: int(min: 0, max: 19), content: int(min: 0) do
+      ptest length: int(min: 2, max: 19), content: int(min: 0) do
         byte_length = length * 8
         packet = <<content::size(byte_length)>>
 
@@ -72,11 +116,48 @@ defmodule Jerboa.FormatTest do
         assert {:ok, _, ^extra} = Format.decode packet
       end
     end
+
+    test "decodes valid ChannelData message" do
+      ptest channel_number: int(min: 0x4000, max: 0x7FFF), length: int(min: 0),
+        content: int(min: 0) do
+        data = <<content::size(length)-unit(8)>>
+        packet = <<channel_number::16, length::16, data::binary>>
+
+        assert {:ok, channel_data} = Format.decode packet
+        assert %ChannelData{channel_number: channel_number, data: data} ==
+          channel_data
+      end
+    end
+
+    test "decodes valid ChannelData message with extra bytes" do
+      ptest channel_number: int(min: 0x4000, max: 0x7FFF), length: int(min: 0),
+        content: int(min: 0), extra_length: int(min: 1) do
+        data = <<content::size(length)-unit(8)>>
+        extra = <<0::size(extra_length)-unit(8)>>
+        packet = <<channel_number::16, length::16, data::binary, extra::binary>>
+
+        assert {:ok, channel_data, ^extra} = Format.decode packet
+        assert %ChannelData{channel_number: channel_number, data: data} ==
+          channel_data
+      end
+    end
+
+    test "fails to decode if ChannelData has too short data field" do
+      ptest channel_number: int(min: 0x4000, max: 0x7FFF), length: int(min: 1),
+        content: int(min: 0), length_offset: int(min: 1, max: ^length) do
+        malformed_length = length - length_offset
+        data = <<content::size(malformed_length)-unit(8)>>
+        packet = <<channel_number::16, length::16, data::binary>>
+
+        assert {:error, %ChannelDataLengthError{length: ^malformed_length}} =
+          Format.decode packet
+      end
+    end
   end
 
   describe "Format.decode!/2" do
     test "raises an exception upon failure" do
-      packet = "Supercalifragilisticexpialidocious!"
+      packet = <<255, "Supercalifragilisticexpialidocious!"::binary>>
 
       assert_raise Jerboa.Format.First2BitsError, fn -> Format.decode!(packet) end
     end

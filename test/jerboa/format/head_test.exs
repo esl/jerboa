@@ -117,6 +117,7 @@ defmodule Jerboa.Format.HeaderTest do
                allocate: [:request, :success, :failure],
                refresh: [:request, :success, :failure],
                create_permission: [:request, :success, :failure],
+               channel_bind: [:request, :success, :failure],
                send: [:indication],
                data: [:indication]]
 

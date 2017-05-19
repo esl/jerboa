@@ -16,7 +16,7 @@ defmodule Jerboa.Format.Body.Attribute.ChannelNumber do
   Contains the number of the channel
   """
   @type t :: %__MODULE__{
-    number: integer
+    number: Jerboa.Format.channel_number
   }
 
   defimpl Encoder do
