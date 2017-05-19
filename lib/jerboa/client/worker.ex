@@ -220,6 +220,7 @@ defmodule Jerboa.Client.Worker do
   @spec maybe_notify_subscribers(state, Client.address, binary) :: any
   defp maybe_notify_subscribers(state, peer, data) do
     if has_permission?(state, peer) do
+      _ = Logger.debug "Received data from peer: #{Client.format_address(peer)}"
       notify_subscribers(state, peer, data)
     end
   end
