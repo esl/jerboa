@@ -432,7 +432,9 @@ defmodule Jerboa.Client.Worker do
   @spec cancel_permission_timers(Relay.t) :: any
   defp cancel_permission_timers(relay) do
     relay.permissions
-    |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
+    |> Enum.each(fn p ->
+      if is_reference(p.timer_ref), do: Process.cancel_timer(p.timer_ref)
+    end)
   end
 
   ## Subscriptions
