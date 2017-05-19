@@ -8,6 +8,7 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
+  alias Jerboa.Client.Relay.Channel
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
                                 CreatePermission, Send, Data, ChannelBind}
@@ -19,6 +20,7 @@ defmodule Jerboa.Client.Worker do
              relay: %Relay{}, transactions: %{}, subscriptions: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
+  @channel_expiry 10 * 60 * 1_000 # 10 minutes
 
   @type socket :: UDP.socket
   @type subscribers :: %{sub_pid :: pid => sub_ref :: reference}
@@ -104,8 +106,7 @@ defmodule Jerboa.Client.Worker do
     if state.relay.address do
       {id, request} = ChannelBind.request(state.credentials, peer, 0x4000)
       send(request, state.server, state.socket)
-      {peer_addr, _} = peer
-      context = %{peer_addr: peer_addr}
+      context = %{peer: peer, channel_number: 0x4001}
       transaction = Transaction.new(from, id, channel_bind_response_handler(),
         context)
       {:noreply, state |> add_transaction(transaction)}
@@ -150,12 +151,25 @@ defmodule Jerboa.Client.Worker do
   def handle_info(:allocation_expired, state) do
     _ = Logger.debug "Allocation timed out"
     cancel_permission_timers(state.relay)
+    cancel_channel_timers(state.relay)
     new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
   def handle_info({:permission_expired, peer_addr}, state) do
     _ = Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
     new_relay = state.relay |> remove_permission(peer_addr)
+    {:noreply, %{state | relay: new_relay}}
+  end
+  def handle_info({:channel_expired, {peer_addr, _} = peer, channel_number},
+    state) do
+    _ = Logger.debug fn ->
+      "Channel ##{channel_number}, bound to #{Client.format_address(peer)}, " <>
+        "expired"
+    end
+    new_relay =
+      state.relay
+      |> remove_permission(peer_addr)
+      |> remove_channel(peer, channel_number)
     {:noreply, %{state | relay: new_relay}}
   end
   def handle_info({:udp, socket, addr, port, packet},
@@ -391,13 +405,15 @@ defmodule Jerboa.Client.Worker do
 
   @spec channel_bind_response_handler :: Transaction.handler
   defp channel_bind_response_handler do
-    fn params, creds, relay, %{peer_addr: peer_addr} ->
+    fn params, creds, relay, %{peer: peer, channel_number: channel_number} ->
       case ChannelBind.eval_response(params, creds) do
         :ok ->
           _ = Logger.debug "Received success channel bind response"
+          {peer_addr, _} = peer
           new_relay =
             relay
             |> add_permissions([peer_addr])
+            |> add_channel(peer, channel_number)
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
           _ = Logger.debug fn ->
@@ -448,6 +464,36 @@ defmodule Jerboa.Client.Worker do
     |> Enum.each(fn {_, timer_ref} ->
       Process.cancel_timer(timer_ref)
     end)
+  end
+
+  @spec add_channel(Relay.t, Client.address, Format.channel_number) :: Relay.t
+  defp add_channel(relay, peer, channel_number) do
+    timer_ref = Process.send_after self(),
+      {:channel_expired, peer, channel_number}, @channel_expiry
+    channel = %Channel{peer: peer, number: channel_number,
+                       timer_ref: timer_ref}
+    {peer_to_channel, number_to_channel} = relay.channels
+    cancel_timer = fn channel -> _ = Process.cancel_timer(channel.timer_ref) end
+    channels =
+      {Map.update(peer_to_channel, peer, channel, cancel_timer),
+       Map.update(number_to_channel, channel_number, channel, cancel_timer)}
+    %{relay | channels: channels}
+  end
+
+  @spec remove_channel(Relay.t, Client.address, Format.channel_number) :: Relay.t
+  defp remove_channel(relay, peer, channel_number) do
+    {peer_to_channel, number_to_channel} = relay.channels
+    channels = {Map.delete(peer_to_channel, peer),
+                Map.delete(number_to_channel, channel_number)}
+    %{relay | channels: channels}
+  end
+
+  @spec cancel_channel_timers(Relay.t) :: any
+  defp cancel_channel_timers(relay) do
+    {peer_to_channel, _} = relay.channels
+    for channel <- Map.values(peer_to_channel) do
+      _ = Process.cancel_timer channel.timer_ref
+    end
   end
 
   ## Subscriptions
