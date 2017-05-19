@@ -179,7 +179,8 @@ defmodule Jerboa.Client.Worker do
   @spec handle_response(state, Params.t, Transaction.t) :: state
   defp handle_response(state, params, transaction) do
     handler = transaction.handler
-    {reply, creds, relay} = handler.(params, state.credentials, state.relay)
+    {reply, creds, relay} = handler.(params, state.credentials, state.relay,
+      transaction.context)
     GenServer.reply(transaction.caller, reply)
     %{state | credentials: creds, relay: relay}
   end
@@ -257,7 +258,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec binding_response_handler :: Transaction.handler
   defp binding_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       reply = Binding.eval_response(params)
       case reply do
         {:ok, mapped_address} ->
@@ -276,7 +277,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec allocate_response_handler(Client.allocate_opts) :: Transaction.handler
   defp allocate_response_handler(opts) do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       case Allocate.eval_response(params, creds, opts) do
         {:ok, relayed_address, lifetime, reservation_token} ->
           handle_allocate_success_with_token(relayed_address, lifetime,
@@ -328,7 +329,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec refresh_response_handler :: Transaction.handler
   defp refresh_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       case Refresh.eval_response(params, creds) do
         {:ok, lifetime} ->
           _ = Logger.debug fn ->
@@ -352,7 +353,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec create_perm_response_handler :: Transaction.handler
   defp create_perm_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       case CreatePermission.eval_response(params, creds) do
         :ok ->
           _ = Logger.debug "Received success create permission reponse"
