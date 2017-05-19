@@ -358,37 +358,50 @@ defmodule Jerboa.Client.Worker do
           _ = Logger.debug "Received success create permission reponse"
           new_relay =
             relay
-            |> update_permissions(params.identifier)
+            |> ack_permissions(params.identifier)
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
           _ = Logger.debug fn ->
             "Error when receiving create permission response, " <>
               "reason: #{inspect reason}"
           end
+          new_relay =
+            relay
+            |> delete_unacked_permissions(params.identifier)
           reply = {:error, reason}
-          {reply,  new_creds, relay}
+          {reply,  new_creds, new_relay}
       end
     end
   end
 
-  @spec update_permissions(Relay.t, transaction_id :: binary) :: Relay.t
-  defp update_permissions(relay, transaction_id) do
+  @spec ack_permissions(Relay.t, transaction_id :: binary) :: Relay.t
+  defp ack_permissions(relay, transaction_id) do
     new_perms =
       relay.permissions
-      |> Enum.map(fn p -> update_permission(p, transaction_id) end)
+      |> Enum.map(fn p -> ack_permission(p, transaction_id) end)
     %{relay | permissions: new_perms}
   end
 
-  @spec update_permission(Permission.t, transaction_id :: binary)
+  @spec ack_permission(Permission.t, transaction_id :: binary)
     :: Permission.t
-  def update_permission(%{transaction_id: transaction_id} = perm,
+  def ack_permission(%{transaction_id: transaction_id} = perm,
     transaction_id) do
     _ = if perm.acked?, do: Process.cancel_timer perm.timer_ref
     timer_ref = Process.send_after self(),
       {:permission_expired, perm.peer_address}, @permission_expiry
     %Permission{perm | acked?: true, timer_ref: timer_ref}
   end
-  def update_permission(perm, _), do: perm
+  def ack_permission(perm, _), do: perm
+
+  @spec delete_unacked_permissions(Relay.t, transaction_id :: binary) :: Relay.t
+  defp delete_unacked_permissions(relay, transaction_id) do
+    new_perms =
+      relay.permissions
+      |> Enum.reject(fn p ->
+        not p.acked? and p.transaction_id == transaction_id
+      end)
+    %{relay | permissions: new_perms}
+  end
 
   @spec remove_permission(Relay.t, Client.ip) :: Relay.t
   defp remove_permission(relay, peer_addr) do
