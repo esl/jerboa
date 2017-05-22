@@ -4,6 +4,7 @@ defmodule Jerboa.Client.Worker do
   use GenServer
 
   alias :gen_udp, as: UDP
+  alias Jerboa.Format
   alias Jerboa.Params
   alias Jerboa.ChannelData
   alias Jerboa.Client
@@ -106,7 +107,7 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_call({:open_channel, peer}, from, state) do
     with true <- Relay.active?(state.relay),
-         {:ok, number} = Relay.gen_channel_number(state.relay, peer) do
+         {:ok, number} <- Relay.gen_channel_number(state.relay, peer) do
       {id, request} = ChannelBind.request(state.credentials, peer, number)
       send(request, state.server, state.socket)
       context = %{peer: peer, channel_number: number}
@@ -165,8 +166,8 @@ defmodule Jerboa.Client.Worker do
 
   def handle_info(:allocation_expired, state) do
     _ = Logger.debug "Allocation timed out"
-    cancel_permission_timers(state.relay)
-    cancel_channel_timers(state.relay)
+    _ = cancel_permission_timers(state.relay)
+    _ = cancel_channel_timers(state.relay)
     new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
@@ -211,7 +212,7 @@ defmodule Jerboa.Client.Worker do
         remove_transaction(state, t.id)
       else
         %ChannelData{} ->
-          handle_channel_data(state, decoded)
+          _ = handle_channel_data(state, decoded)
           state
         _ ->
           _ = handle_peer_data(state, decoded)
@@ -334,14 +335,14 @@ defmodule Jerboa.Client.Worker do
   defp binding_response_handler do
     fn params, creds, relay, _ ->
       reply = Binding.eval_response(params)
-      case reply do
+      _ = case reply do
         {:ok, mapped_address} ->
-          _ = Logger.debug fn ->
+          Logger.debug fn ->
             "Received success binding response, mapped address: " <>
               Client.format_address(mapped_address)
           end
         {:error, reason} ->
-          _ = Logger.debug fn ->
+          Logger.debug fn ->
             "Error when receiving binding response, reason: #{inspect reason}"
           end
       end

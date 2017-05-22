@@ -42,7 +42,7 @@ defmodule Jerboa.Client.Relay do
     %__MODULE__{relay | permissions: permissions}
   end
 
-  @spec remove_permission(Relay.t, Client.ip) :: Relay.t
+  @spec remove_permission(t, Client.ip) :: t
   def remove_permission(relay, peer_addr) do
     permissions = Map.delete(relay.permissions, peer_addr)
     %__MODULE__{relay | permissions: permissions}
@@ -55,7 +55,7 @@ defmodule Jerboa.Client.Relay do
     end)
   end
 
-  @spec get_permission_timers(Relay.t) :: [timer_ref :: reference]
+  @spec get_permission_timers(t) :: [timer_ref :: reference]
   def get_permission_timers(relay) do
     relay.permissions
     |> Enum.map(fn {_, timer_ref} -> timer_ref end)
@@ -72,7 +72,7 @@ defmodule Jerboa.Client.Relay do
   end
 
   @spec remove_channel(t, peer :: Client.address, Format.channel_number)
-    :: Relay.t
+    :: t
   def remove_channel(relay, peer, channel_number) do
     by_peer = Map.delete(relay.channels.by_peer, peer)
     by_number = Map.delete(relay.channels.by_number, channel_number)
