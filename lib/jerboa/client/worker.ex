@@ -64,7 +64,7 @@ defmodule Jerboa.Client.Worker do
     {:noreply, add_transaction(state, transaction)}
   end
   def handle_call({:allocate, opts}, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       _ = Logger.debug "Allocation already present on the server, " <>
         "allocate request blocked"
       {:reply, {:ok, state.relay.address}, state}
@@ -77,7 +77,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call(:refresh, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       {id, request} = Refresh.request(state.credentials)
       _ = Logger.debug "Sending refresh request to the server"
       send(request, state.server, state.socket)
@@ -90,7 +90,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call({:create_permission, peer_addrs}, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       {id, request} = CreatePermission.request(state.credentials, peer_addrs)
       send(request, state.server, state.socket)
       context = %{peer_addrs: peer_addrs}
@@ -104,7 +104,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call({:open_channel, peer}, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       {id, request} = ChannelBind.request(state.credentials, peer, 0x4000)
       send(request, state.server, state.socket)
       context = %{peer: peer, channel_number: 0x4000}
@@ -119,10 +119,10 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_call({:send, peer, data}, _, state) do
     formatted_peer = Client.format_address(peer)
-    has_permission? = has_permission?(state, peer)
+    has_permission? = Relay.has_permission?(state.relay, peer)
     cond do
-      has_permission? and has_channel_bound?(state, peer) ->
-        {:ok, channel} = get_channel_by_peer(state, peer)
+      has_permission? and Relay.has_channel_bound?(state.relay, peer) ->
+        {:ok, channel} = Relay.get_channel_by_peer(state.relay, peer)
         channel_data = Protocol.encode_channel_data(channel.number, data)
         send(channel_data, state.server, state.socket)
         {:reply, :ok, state}
@@ -165,10 +165,10 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_info({:permission_expired, peer_addr}, state) do
     _ = Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
-    new_relay = state.relay |> remove_permission(peer_addr)
+    new_relay = state.relay |> Relay.remove_permission(peer_addr)
     {:noreply, %{state | relay: new_relay}}
   end
-  def handle_info({:channel_expired, {peer_addr, _} = peer, channel_number},
+  def handle_info({:channel_expired, peer, channel_number},
     state) do
     _ = Logger.debug fn ->
       "Channel ##{channel_number}, bound to #{Client.format_address(peer)}, " <>
@@ -176,7 +176,7 @@ defmodule Jerboa.Client.Worker do
     end
     new_relay =
       state.relay
-      |> remove_channel(peer, channel_number)
+      |> Relay.remove_channel(peer, channel_number)
     {:noreply, %{state | relay: new_relay}}
   end
   def handle_info({:udp, socket, addr, port, packet},
@@ -241,7 +241,7 @@ defmodule Jerboa.Client.Worker do
     end
     if lifetime do
       new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
-      %{relay | timer_ref: new_ref}
+      Relay.put_timer_ref(relay, new_ref)
     else
       relay
     end
@@ -258,10 +258,10 @@ defmodule Jerboa.Client.Worker do
   end
 
   @spec handle_channel_data(state, ChannelData.t) :: any
-  defp handle_channel_data(state, channel_data) do
-    case get_channel_by_number(state, channel_data.channel_number) do
+  defp handle_channel_data(state, %{channel_number: number, data: data}) do
+    case Relay.get_channel_by_number(state.relay, number) do
       {:ok, channel} ->
-        maybe_notify_subscribers(state, channel.peer, channel_data.data)
+        maybe_notify_subscribers(state, channel.peer, data)
       :error ->
         _ = Logger.debug "Received ChannelData message on non-existing channel"
     end
@@ -269,7 +269,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec maybe_notify_subscribers(state, Client.address, binary) :: any
   defp maybe_notify_subscribers(state, peer, data) do
-    if has_permission?(state, peer) do
+    if Relay.has_permission?(state.relay, peer) do
       _ = Logger.debug fn ->
         "Received data from peer: #{Client.format_address(peer)}"
       end
@@ -374,8 +374,8 @@ defmodule Jerboa.Client.Worker do
 
   defp init_new_relay(old_relay, relayed_address, lifetime) do
     old_relay
-    |> Map.put(:address, relayed_address)
-    |> Map.put(:lifetime, lifetime)
+    |> Relay.put_address(relayed_address)
+    |> Relay.put_lifetime(lifetime)
     |> update_allocation_timer()
   end
 
@@ -390,7 +390,7 @@ defmodule Jerboa.Client.Worker do
           end
           new_relay =
             relay
-            |> Map.put(:lifetime, lifetime)
+            |> Relay.put_lifetime(lifetime)
             |> update_allocation_timer()
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
@@ -447,12 +447,6 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec remove_permission(Relay.t, Client.ip) :: Relay.t
-  defp remove_permission(relay, peer_addr) do
-    permissions = Map.delete(relay.permissions, peer_addr)
-    %{relay | permissions: permissions}
-  end
-
   @spec add_permissions(Relay.t, [Client.ip, ...])
     :: Relay.t
   defp add_permissions(relay, peer_addrs) do
@@ -469,20 +463,13 @@ defmodule Jerboa.Client.Worker do
         _ = Process.cancel_timer old_ref
         new_ref
       end)
-    %{relay | permissions: permissions}
-  end
-
-  @spec has_permission?(state, peer :: Client.address) :: boolean
-  defp has_permission?(state, {address, _port}) do
-    Enum.any?(state.relay.permissions, fn {peer_addr, _} ->
-      peer_addr == address
-    end)
+    Relay.put_permissions(relay, permissions)
   end
 
   @spec cancel_permission_timers(Relay.t) :: any
   defp cancel_permission_timers(relay) do
-    relay.permissions
-    |> Enum.each(fn {_, timer_ref} ->
+    Relay.get_permission_timers(relay)
+    |> Enum.each(fn timer_ref ->
       Process.cancel_timer(timer_ref)
     end)
   end
@@ -493,49 +480,15 @@ defmodule Jerboa.Client.Worker do
       {:channel_expired, peer, channel_number}, @channel_expiry
     channel = %Channel{peer: peer, number: channel_number,
                        timer_ref: timer_ref}
-    {peer_to_channel, number_to_channel} = relay.channels
     cancel_timer = fn channel -> _ = Process.cancel_timer(channel.timer_ref) end
-    channels =
-      {Map.update(peer_to_channel, peer, channel, cancel_timer),
-       Map.update(number_to_channel, channel_number, channel, cancel_timer)}
-    %{relay | channels: channels}
-  end
-
-  @spec remove_channel(Relay.t, Client.address, Format.channel_number) :: Relay.t
-  defp remove_channel(relay, peer, channel_number) do
-    {peer_to_channel, number_to_channel} = relay.channels
-    channels = {Map.delete(peer_to_channel, peer),
-                Map.delete(number_to_channel, channel_number)}
-    %{relay | channels: channels}
+    Relay.put_channel(relay, channel, cancel_timer)
   end
 
   @spec cancel_channel_timers(Relay.t) :: any
   defp cancel_channel_timers(relay) do
-    {peer_to_channel, _} = relay.channels
-    for channel <- Map.values(peer_to_channel) do
+    for channel <- Relay.get_channels(relay) do
       _ = Process.cancel_timer channel.timer_ref
     end
-  end
-
-  @spec has_channel_bound?(state, Client.address) :: boolean
-  defp has_channel_bound?(state, peer) do
-    case get_channel_by_peer(state, peer) do
-      {:ok, _} -> true
-      _ -> false
-    end
-  end
-
-  @spec get_channel_by_peer(state, Client.address) :: {:ok, Channel.t} | :error
-  defp get_channel_by_peer(state, peer) do
-    {peer_to_channel, _} = state.relay.channels
-    Map.fetch(peer_to_channel, peer)
-  end
-
-  @spec get_channel_by_number(state, Format.channel_number)
-  :: {:ok, Channel.t} | :error
-  defp get_channel_by_number(state, number) do
-    {_, number_to_channel} = state.relay.channels
-    Map.fetch(number_to_channel, number)
   end
 
   ## Subscriptions
