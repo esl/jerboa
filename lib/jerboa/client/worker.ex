@@ -119,17 +119,24 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_call({:send, peer, data}, _, state) do
     formatted_peer = Client.format_address(peer)
-    if has_permission?(state, peer) do
-      indication = Send.indication(peer, data)
-      _ = Logger.debug fn ->
-        "Sending data to #{formatted_peer} via send indication"
-      end
-      send(indication, state.server, state.socket)
-      {:reply, :ok, state}
-    else
-      _ = Logger.debug "No permission installed for #{formatted_peer}, " <>
-        "send indication blocked"
-      {:reply, {:error, :no_permission}, state}
+    has_permission? = has_permission?(state, peer)
+    cond do
+      has_permission? and has_channel_bound?(state, peer) ->
+        {:ok, channel} = get_channel_by_peer(state, peer)
+        channel_data = Protocol.encode_channel_data(channel.number, data)
+        send(channel_data, state.server, state.socket)
+        {:reply, :ok, state}
+      has_permission? ->
+        indication = Send.indication(peer, data)
+        _ = Logger.debug fn ->
+          "Sending data to #{formatted_peer} via send indication"
+        end
+        send(indication, state.server, state.socket)
+        {:reply, :ok, state}
+      true ->
+        _ = Logger.debug "No permission installed for #{formatted_peer}, " <>
+          "send indication blocked"
+        {:reply, {:error, :no_permission}, state}
     end
   end
   def handle_call({:subscribe, sub_pid, peer_addr}, _, state) do
@@ -253,8 +260,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec handle_channel_data(state, ChannelData.t) :: any
   defp handle_channel_data(state, channel_data) do
-    {_, channel_to_peer} = state.relay.channels
-    case Map.fetch(channel_to_peer, channel_data.channel_number) do
+    case get_channel_by_number(state, channel_data.channel_number) do
       {:ok, channel} ->
         maybe_notify_subscribers(state, channel.peer, channel_data.data)
       :error ->
@@ -510,6 +516,27 @@ defmodule Jerboa.Client.Worker do
     for channel <- Map.values(peer_to_channel) do
       _ = Process.cancel_timer channel.timer_ref
     end
+  end
+
+  @spec has_channel_bound?(state, Client.address) :: boolean
+  defp has_channel_bound?(state, peer) do
+    case get_channel_by_peer(state, peer) do
+      {:ok, _} -> true
+      _ -> false
+    end
+  end
+
+  @spec get_channel_by_peer(state, Client.address) :: {:ok, Channel.t} | :error
+  defp get_channel_by_peer(state, peer) do
+    {peer_to_channel, _} = state.relay.channels
+    Map.fetch(peer_to_channel, peer)
+  end
+
+  @spec get_channel_by_number(state, Format.channel_number)
+  :: {:ok, Channel.t} | :error
+  defp get_channel_by_number(state, number) do
+    {_, number_to_channel} = state.relay.channels
+    Map.fetch(number_to_channel, number)
   end
 
   ## Subscriptions

@@ -15,6 +15,12 @@ defmodule Jerboa.Client.Protocol do
 
   ## API
 
+  @spec encode_channel_data(Format.channel_number, binary) :: binary
+  def encode_channel_data(number, data) do
+    %ChannelData{channel_number: number, data: data}
+    |> Format.encode()
+  end
+
   @spec encode_request(Params.t, Credentials.t) :: request
   def encode_request(params, creds) do
     opts = Credentials.to_decode_opts(creds)
