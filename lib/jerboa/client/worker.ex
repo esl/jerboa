@@ -176,7 +176,6 @@ defmodule Jerboa.Client.Worker do
     end
     new_relay =
       state.relay
-      |> remove_permission(peer_addr)
       |> remove_channel(peer, channel_number)
     {:noreply, %{state | relay: new_relay}}
   end
