@@ -118,16 +118,54 @@ defmodule Jerboa.Client.Relay do
     end
   end
 
+  @spec lock_channel(t, peer :: Client.address, Format.channel_number) :: t
+  def lock_channel(relay, peer, channel_number) do
+    locked_numbers = MapSet.put(relay.channels.locked_numbers, channel_number)
+    locked_peers = MapSet.put(relay.channels.locked_peers, peer)
+    channels = %Channels{relay.channels | locked_numbers: locked_numbers,
+                         locked_peers: locked_peers}
+    %__MODULE__{relay | channels: channels}
+  end
+
+  @spec unlock_channel(t, peer :: Client.address, Format.channel_number) :: t
+  def unlock_channel(relay, peer, channel_number) do
+    locked_numbers = MapSet.delete(relay.channels.locked_numbers, channel_number)
+    locked_peers = MapSet.delete(relay.channels.locked_peers, peer)
+    channels = %Channels{relay.channels | locked_numbers: locked_numbers,
+                         locked_peers: locked_peers}
+    %__MODULE__{relay | channels: channels}
+  end
+
+  @spec put_lock_timer_ref(t, Format.channel_number, timer_ref :: reference) :: t
+  def put_lock_timer_ref(relay, channel_number, timer_ref) do
+    lock_timer_refs = Map.put(relay.channels.lock_timer_refs,
+      channel_number, timer_ref)
+    channels = %Channels{relay.channels | lock_timer_refs: lock_timer_refs}
+    %__MODULE__{relay | channels: channels}
+  end
+
+  @spec remove_lock_timer_ref(t, Format.channel_number) :: t
+  def remove_lock_timer_ref(relay, channel_number) do
+    lock_timer_refs = Map.delete(relay.channels.lock_timer_refs, channel_number)
+    channels = %Channels{relay.channels | lock_timer_refs: lock_timer_refs}
+    %__MODULE__{relay | channels: channels}
+  end
+
+  @spec get_lock_timer_refs(t) :: [timer_ref :: reference]
+  def get_lock_timer_refs(relay) do
+    Map.values(relay.channels.lock_timer_refs)
+  end
+
   @spec do_gen_channel_number(t)
     :: {:ok, Format.channel_number} | {:error, :retries_limit_reached}
-  defp do_gen_channel_number(relay, retry \\ 1)
+  defp do_gen_channel_number(_, retry \\ 1)
   defp do_gen_channel_number(_, retry) when retry == @max_gen_channel_retries do
     {:error, :retries_limit_reached}
   end
   defp do_gen_channel_number(relay, retry) do
     channel_number = random_channel_number()
     if channel_taken_or_locked?(relay, channel_number) do
-      gen_channel_number(relay, retry + 1)
+      do_gen_channel_number(relay, retry + 1)
     else
       {:ok, channel_number}
     end

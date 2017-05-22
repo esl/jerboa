@@ -22,6 +22,7 @@ defmodule Jerboa.Client.Worker do
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
   @channel_expiry 10 * 60 * 1_000 # 10 minutes
+  @channel_unlock_time 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
   @type subscribers :: %{sub_pid :: pid => sub_ref :: reference}
@@ -180,9 +181,24 @@ defmodule Jerboa.Client.Worker do
       "Channel ##{channel_number}, bound to #{Client.format_address(peer)}, " <>
         "expired"
     end
+    timer_ref = Process.send_after self(),
+      {:unlock_channel, peer, channel_number}, @channel_unlock_time
     new_relay =
       state.relay
       |> Relay.remove_channel(peer, channel_number)
+      |> Relay.lock_channel(peer, channel_number)
+      |> Relay.put_lock_timer_ref(channel_number, timer_ref)
+    {:noreply, %{state | relay: new_relay}}
+  end
+  def handle_info({:unlock_channel, peer, channel_number}, state) do
+    _ = Logger.debug fn ->
+      "Unlocking channel ##{channel_number} and peer " <>
+        "#{Client.format_address(peer)}"
+    end
+    new_relay =
+      state.relay
+      |> Relay.unlock_channel(peer, channel_number)
+      |> Relay.remove_lock_timer_ref(channel_number)
     {:noreply, %{state | relay: new_relay}}
   end
   def handle_info({:udp, socket, addr, port, packet},
@@ -494,6 +510,9 @@ defmodule Jerboa.Client.Worker do
   defp cancel_channel_timers(relay) do
     for channel <- Relay.get_channels(relay) do
       _ = Process.cancel_timer channel.timer_ref
+    end
+    for timer_ref <- Relay.get_lock_timer_refs(relay) do
+      _ = Process.cancel_timer timer_ref
     end
   end
 
