@@ -5,6 +5,7 @@ defmodule Jerboa.Client.Worker do
 
   alias :gen_udp, as: UDP
   alias Jerboa.Params
+  alias Jerboa.ChannelData
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
@@ -106,7 +107,7 @@ defmodule Jerboa.Client.Worker do
     if state.relay.address do
       {id, request} = ChannelBind.request(state.credentials, peer, 0x4000)
       send(request, state.server, state.socket)
-      context = %{peer: peer, channel_number: 0x4001}
+      context = %{peer: peer, channel_number: 0x4000}
       transaction = Transaction.new(from, id, channel_bind_response_handler(),
         context)
       {:noreply, state |> add_transaction(transaction)}
@@ -174,15 +175,19 @@ defmodule Jerboa.Client.Worker do
   end
   def handle_info({:udp, socket, addr, port, packet},
     %{socket: socket, server: {addr, port}} = state) do
-    params = Protocol.decode!(packet, state.credentials)
+    decoded = Protocol.decode!(packet, state.credentials)
     new_state =
-      case find_transaction(state, params.identifier) do
-        nil ->
-          _ = handle_peer_data(state, params)
+      with %Params{} <- decoded,
+           %Transaction{} = t <- find_transaction(state, decoded.identifier) do
+        state = handle_response(state, decoded, t)
+        remove_transaction(state, t.id)
+      else
+        %ChannelData{} ->
+          handle_channel_data(state, decoded)
           state
-        transaction ->
-          state = handle_response(state, params, transaction)
-          remove_transaction(state, transaction.id)
+        _ ->
+          _ = handle_peer_data(state, decoded)
+          state
       end
     {:noreply, new_state}
   end
@@ -243,6 +248,17 @@ defmodule Jerboa.Client.Worker do
         maybe_notify_subscribers(state, peer, data)
       :error ->
         _ = Logger.debug "Received unprocessable STUN message"
+    end
+  end
+
+  @spec handle_channel_data(state, ChannelData.t) :: any
+  defp handle_channel_data(state, channel_data) do
+    {_, channel_to_peer} = state.relay.channels
+    case Map.fetch(channel_to_peer, channel_data.channel_number) do
+      {:ok, channel} ->
+        maybe_notify_subscribers(state, channel.peer, channel_data.data)
+      :error ->
+        _ = Logger.debug "Received ChannelData message on non-existing channel"
     end
   end
 

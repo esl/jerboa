@@ -68,16 +68,18 @@ defmodule Jerboa.Format do
 
   @doc """
   The same as `decode/1` but raises one of various exceptions if the
-  binary doesn't encode a STUN message
+  binary doesn't encode a STUN or ChannelData message
   """
   @spec decode!(binary, options :: Keyword.t)
-    :: Params.t | {Params.t, extra :: binary} | no_return
+    :: Params.t | ChannelData.t
+    | {Params.t | ChannelData.t, extra :: binary}
+    | no_return
   def decode!(bin, options \\ []) do
     case decode(bin, options) do
-      {:ok, params} ->
-        params
-      {:ok, params, extra} ->
-        {params, extra}
+      {:ok, params_or_channel_data} ->
+        params_or_channel_data
+      {:ok, params_or_channel_data, extra} ->
+        {params_or_channel_data, extra}
       {:error, e} ->
         raise e
     end
