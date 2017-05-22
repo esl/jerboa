@@ -104,17 +104,23 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call({:open_channel, peer}, from, state) do
-    if Relay.active?(state.relay) do
-      {id, request} = ChannelBind.request(state.credentials, peer, 0x4000)
+    with true <- Relay.active?(state.relay),
+         {:ok, number} = Relay.gen_channel_number(state.relay, peer) do
+      {id, request} = ChannelBind.request(state.credentials, peer, number)
       send(request, state.server, state.socket)
-      context = %{peer: peer, channel_number: 0x4000}
+      context = %{peer: peer, channel_number: number}
       transaction = Transaction.new(from, id, channel_bind_response_handler(),
         context)
       {:noreply, state |> add_transaction(transaction)}
     else
-      _ = Logger.debug "No allocation present on the server, " <>
-        "channel bind request blocked"
-      {:reply, {:error, :no_allocation}, state}
+      false ->
+        _ = Logger.debug "No allocation present on the server, " <>
+          "channel bind request blocked"
+        {:reply, {:error, :no_allocation}, state}
+      {:error, reason} = error ->
+        _ = Logger.debug "Couldn't generate channel number for peer " <>
+          "#{Client.format_address(peer)}, reason: #{inspect reason}"
+        {:reply, error, state}
     end
   end
   def handle_call({:send, peer, data}, _, state) do

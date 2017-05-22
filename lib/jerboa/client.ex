@@ -293,7 +293,9 @@ defmodule Jerboa.Client do
   whereas channels are valid for 10 minutes. It is required to refresh
   permissions more often than channels.
   """
-  @spec open_channel(t, peer :: Client.address) :: :ok | {:error, error}
+  @spec open_channel(t, peer :: Client.address)
+  :: :ok
+   | {:error, error | :peer_locked | :capacity_reached | :retries_limit_reached}
   def open_channel(client, peer) do
     request(client, {:open_channel, peer}).()
   end

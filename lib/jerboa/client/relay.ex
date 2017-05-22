@@ -3,11 +3,16 @@ defmodule Jerboa.Client.Relay do
   ## Data structure describing relay (allocation)
 
   alias Jerboa.Client
-  alias Jerboa.Client.Channel
+  alias Jerboa.Client.Relay.Channel
+  alias Jerboa.Client.Relay.Channels
   alias Jerboa.Format
 
+  @max_gen_channel_retries 10
+  @min_channel_number 0x4000
+  @max_channel_number 0x7FFF
+
   defstruct [:address, :lifetime, :timer_ref, permissions: %{},
-             channels: {%{}, %{}}]
+             channels: %Channels{}]
 
   @type permissions :: %{Client.ip => timer_ref :: reference}
   @type t :: %__MODULE__{
@@ -15,13 +20,7 @@ defmodule Jerboa.Client.Relay do
     lifetime:  nil | non_neg_integer,
     timer_ref: nil | reference,
     permissions: permissions,
-
-    ## `:channels` is a tuple of two maps, which have the same values,
-    ## but under different keys. The first one's keys are peer adresses
-    ## bound to channels, the other one's keys are channel numbers of
-    ## those channels. The values in both are Channel structs.
-    channels: {%{peer :: Client.address => Channel.t},
-               %{Format.channel_number  => Channel.t}}
+    channels: %Channels{}
   }
 
   @spec active?(t) :: boolean
@@ -64,40 +63,37 @@ defmodule Jerboa.Client.Relay do
 
   @spec put_channel(t, Channel.t, (Channel.t -> any)) :: t
   def put_channel(relay, channel, on_update \\ fn _ -> :ok end) do
-    {peer_to_channel, number_to_channel} = relay.channels
-    channels =
-      {Map.update(peer_to_channel, channel.peer, channel, on_update),
-       Map.update(number_to_channel, channel.number,
-         channel, on_update)}
+    by_peer = Map.update(relay.channels.by_peer, channel.peer,
+      channel, on_update)
+    by_number = Map.update(relay.channels.by_number, channel.number,
+      channel, on_update)
+    channels = %Channels{relay.channels | by_peer: by_peer, by_number: by_number}
     %__MODULE__{relay | channels: channels}
   end
 
   @spec remove_channel(t, peer :: Client.address, Format.channel_number)
     :: Relay.t
   def remove_channel(relay, peer, channel_number) do
-    {peer_to_channel, number_to_channel} = relay.channels
-    channels = {Map.delete(peer_to_channel, peer),
-                Map.delete(number_to_channel, channel_number)}
+    by_peer = Map.delete(relay.channels.by_peer, peer)
+    by_number = Map.delete(relay.channels.by_number, channel_number)
+    channels = %Channels{relay.channels | by_peer: by_peer, by_number: by_number}
     %__MODULE__{relay | channels: channels}
   end
 
   @spec get_channels(t) :: [Channel.t]
   def get_channels(relay) do
-    {peer_to_channel, _} = relay.channels
-    Map.values(peer_to_channel)
+    Map.values(relay.channels.by_peer)
   end
 
   @spec get_channel_by_peer(t, Client.address) :: {:ok, Channel.t} | :error
   def get_channel_by_peer(relay, peer) do
-    {peer_to_channel, _} = relay.channels
-    Map.fetch(peer_to_channel, peer)
+    Map.fetch(relay.channels.by_peer, peer)
   end
 
   @spec get_channel_by_number(t, Format.channel_number)
     :: {:ok, Channel.t} | :error
   def get_channel_by_number(relay, number) do
-    {_, number_to_channel} = relay.channels
-    Map.fetch(number_to_channel, number)
+    Map.fetch(relay.channels.by_number, number)
   end
 
   @spec has_channel_bound?(t, Client.address) :: boolean
@@ -106,5 +102,52 @@ defmodule Jerboa.Client.Relay do
       {:ok, _} -> true
       _ -> false
     end
+  end
+
+  @spec gen_channel_number(t, peer :: Client.address)
+    :: {:ok, Format.channel_number}
+     | {:error, :peer_locked | :capacity_reached | :retries_limit_reached}
+  def gen_channel_number(relay, peer) do
+    cond do
+      MapSet.member?(relay.channels.locked_peers, peer) ->
+        {:error, :peer_locked}
+      channel_capacity_reached?(relay) ->
+        {:error, :capacity_reached}
+      true ->
+        do_gen_channel_number(relay)
+    end
+  end
+
+  @spec do_gen_channel_number(t)
+    :: {:ok, Format.channel_number} | {:error, :retries_limit_reached}
+  defp do_gen_channel_number(relay, retry \\ 1)
+  defp do_gen_channel_number(_, retry) when retry == @max_gen_channel_retries do
+    {:error, :retries_limit_reached}
+  end
+  defp do_gen_channel_number(relay, retry) do
+    channel_number = random_channel_number()
+    if channel_taken_or_locked?(relay, channel_number) do
+      gen_channel_number(relay, retry + 1)
+    else
+      {:ok, channel_number}
+    end
+  end
+
+  @spec random_channel_number :: Format.channel_number
+  defp random_channel_number do
+    :rand.uniform(@max_channel_number - @min_channel_number) +
+      @min_channel_number
+  end
+
+  @spec channel_capacity_reached?(t) :: boolean
+  defp channel_capacity_reached?(relay) do
+    Enum.count(relay.channels.by_peer) ==
+      @max_channel_number - @min_channel_number
+  end
+
+  @spec channel_taken_or_locked?(t, Format.channel_number) :: boolean
+  defp channel_taken_or_locked?(relay, channel_number) do
+     Map.has_key?(relay.channels.by_number, channel_number) or
+       MapSet.member?(relay.channels.locked_numbers, channel_number)
   end
 end
