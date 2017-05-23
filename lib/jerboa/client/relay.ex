@@ -61,8 +61,8 @@ defmodule Jerboa.Client.Relay do
     |> Enum.map(fn {_, timer_ref} -> timer_ref end)
   end
 
-  @spec put_channel(t, Channel.t, (Channel.t -> any)) :: t
-  def put_channel(relay, channel, on_update \\ fn _ -> :ok end) do
+  @spec put_channel(t, Channel.t, (Channel.t -> Channel.t)) :: t
+  def put_channel(relay, channel, on_update \\ & &1) do
     by_peer = Map.update(relay.channels.by_peer, channel.peer,
       channel, on_update)
     by_number = Map.update(relay.channels.by_number, channel.number,
@@ -71,8 +71,7 @@ defmodule Jerboa.Client.Relay do
     %__MODULE__{relay | channels: channels}
   end
 
-  @spec remove_channel(t, peer :: Client.address, Format.channel_number)
-    :: t
+  @spec remove_channel(t, peer :: Client.address, Format.channel_number) :: t
   def remove_channel(relay, peer, channel_number) do
     by_peer = Map.delete(relay.channels.by_peer, peer)
     by_number = Map.delete(relay.channels.by_number, channel_number)
@@ -113,6 +112,9 @@ defmodule Jerboa.Client.Relay do
         {:error, :peer_locked}
       channel_capacity_reached?(relay) ->
         {:error, :capacity_reached}
+      has_channel_bound?(relay, peer) ->
+        {:ok, channel} = get_channel_by_peer(relay, peer)
+        {:ok, channel.number}
       true ->
         do_gen_channel_number(relay)
     end
@@ -179,8 +181,9 @@ defmodule Jerboa.Client.Relay do
 
   @spec channel_capacity_reached?(t) :: boolean
   defp channel_capacity_reached?(relay) do
-    Enum.count(relay.channels.by_peer) ==
-      @max_channel_number - @min_channel_number
+    taken = Enum.count(relay.channels.by_peer)
+    locked = MapSet.size(relay.channels.locked_numbers)
+    taken + locked >= @max_channel_number - @min_channel_number
   end
 
   @spec channel_taken_or_locked?(t, Format.channel_number) :: boolean

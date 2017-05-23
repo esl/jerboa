@@ -491,7 +491,8 @@ defmodule Jerboa.Client.Worker do
 
   @spec cancel_permission_timers(Relay.t) :: any
   defp cancel_permission_timers(relay) do
-    Relay.get_permission_timers(relay)
+    relay
+    |> Relay.get_permission_timers()
     |> Enum.each(fn timer_ref ->
       Process.cancel_timer(timer_ref)
     end)
@@ -503,8 +504,11 @@ defmodule Jerboa.Client.Worker do
       {:channel_expired, peer, channel_number}, @channel_expiry
     channel = %Channel{peer: peer, number: channel_number,
                        timer_ref: timer_ref}
-    cancel_timer = fn channel -> _ = Process.cancel_timer(channel.timer_ref) end
-    Relay.put_channel(relay, channel, cancel_timer)
+    update_channel = fn c ->
+      _ = Process.cancel_timer(c.timer_ref)
+      channel
+    end
+    Relay.put_channel(relay, channel, update_channel)
   end
 
   @spec cancel_channel_timers(Relay.t) :: any
