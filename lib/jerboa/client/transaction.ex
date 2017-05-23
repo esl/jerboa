@@ -6,21 +6,25 @@ defmodule Jerboa.Client.Transaction do
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
 
-  defstruct [:caller, :handler, :id]
+  defstruct [:caller, :handler, :id, :context]
 
   @type caller :: GenServer.from
   @type id :: binary
-  @type handler :: (response :: Params.t, Credentials.t, Relay.t -> result)
+  @type context :: map
+  @type handler :: (response :: Params.t, Credentials.t, Relay.t,
+    context -> result)
   @type result :: {reply :: term, Credentials.t, Relay.t}
 
   @type t :: %__MODULE__{
     caller: GenServer.from,
-    id: binary,
-    handler: handler
+    id: id,
+    handler: handler,
+    context: context
   }
 
   @spec new(caller, id, handler) :: t
-  def new(caller, id, handler) do
-    %__MODULE__{caller: caller, id: id, handler: handler}
+  @spec new(caller, id, handler, context) :: t
+  def new(caller, id, handler, context \\ %{}) do
+    %__MODULE__{caller: caller, id: id, handler: handler, context: context}
   end
 end

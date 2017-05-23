@@ -8,7 +8,6 @@ defmodule Jerboa.Client.Worker do
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
-  alias Jerboa.Client.Relay.Permission
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
                                 CreatePermission, Send, Data}
@@ -91,10 +90,10 @@ defmodule Jerboa.Client.Worker do
     if state.relay.address do
       {id, request} = CreatePermission.request(state.credentials, peer_addrs)
       send(request, state.server, state.socket)
-      transaction = Transaction.new(from, id, create_perm_response_handler())
-      new_relay = state.relay |> add_permissions(peer_addrs, id)
-      new_state = %{state | relay: new_relay} |> add_transaction(transaction)
-      {:noreply, new_state}
+      context = %{peer_addrs: peer_addrs}
+      transaction = Transaction.new(from, id, create_perm_response_handler(),
+        context)
+      {:noreply, state |> add_transaction(transaction)}
     else
       _ = Logger.debug "No allocation present on the server, " <>
         "create permission request blocked"
@@ -179,7 +178,8 @@ defmodule Jerboa.Client.Worker do
   @spec handle_response(state, Params.t, Transaction.t) :: state
   defp handle_response(state, params, transaction) do
     handler = transaction.handler
-    {reply, creds, relay} = handler.(params, state.credentials, state.relay)
+    {reply, creds, relay} = handler.(params, state.credentials, state.relay,
+      transaction.context)
     GenServer.reply(transaction.caller, reply)
     %{state | credentials: creds, relay: relay}
   end
@@ -220,6 +220,9 @@ defmodule Jerboa.Client.Worker do
   @spec maybe_notify_subscribers(state, Client.address, binary) :: any
   defp maybe_notify_subscribers(state, peer, data) do
     if has_permission?(state, peer) do
+      _ = Logger.debug fn ->
+        "Received data from peer: #{Client.format_address(peer)}"
+      end
       notify_subscribers(state, peer, data)
     end
   end
@@ -257,7 +260,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec binding_response_handler :: Transaction.handler
   defp binding_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       reply = Binding.eval_response(params)
       case reply do
         {:ok, mapped_address} ->
@@ -276,7 +279,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec allocate_response_handler(Client.allocate_opts) :: Transaction.handler
   defp allocate_response_handler(opts) do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       case Allocate.eval_response(params, creds, opts) do
         {:ok, relayed_address, lifetime, reservation_token} ->
           handle_allocate_success_with_token(relayed_address, lifetime,
@@ -328,7 +331,7 @@ defmodule Jerboa.Client.Worker do
 
   @spec refresh_response_handler :: Transaction.handler
   defp refresh_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, _ ->
       case Refresh.eval_response(params, creds) do
         {:ok, lifetime} ->
           _ = Logger.debug fn ->
@@ -352,13 +355,13 @@ defmodule Jerboa.Client.Worker do
 
   @spec create_perm_response_handler :: Transaction.handler
   defp create_perm_response_handler do
-    fn params, creds, relay ->
+    fn params, creds, relay, %{peer_addrs: peer_addrs} ->
       case CreatePermission.eval_response(params, creds) do
         :ok ->
           _ = Logger.debug "Received success create permission reponse"
           new_relay =
             relay
-            |> update_permissions(params.identifier)
+            |> add_permissions(peer_addrs)
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
           _ = Logger.debug fn ->
@@ -371,55 +374,44 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec update_permissions(Relay.t, transaction_id :: binary) :: Relay.t
-  defp update_permissions(relay, transaction_id) do
-    new_perms =
-      relay.permissions
-      |> Enum.map(fn p -> update_permission(p, transaction_id) end)
-    %{relay | permissions: new_perms}
-  end
-
-  @spec update_permission(Permission.t, transaction_id :: binary)
-    :: Permission.t
-  def update_permission(%{transaction_id: transaction_id} = perm,
-    transaction_id) do
-    _ = if perm.acked?, do: Process.cancel_timer perm.timer_ref
-    timer_ref = Process.send_after self(),
-      {:permission_expired, perm.peer_address}, @permission_expiry
-    %Permission{perm | acked?: true, timer_ref: timer_ref}
-  end
-  def update_permission(perm, _), do: perm
-
   @spec remove_permission(Relay.t, Client.ip) :: Relay.t
   defp remove_permission(relay, peer_addr) do
-    {_, remaining} =
-      Enum.split_with(relay.permissions,
-        fn perm -> perm.peer_address == peer_addr end)
-    %{relay | permissions: remaining}
+    permissions = Map.delete(relay.permissions, peer_addr)
+    %{relay | permissions: permissions}
   end
 
-  @spec add_permissions(Relay.t, [Client.ip, ...], transaction_id :: binary)
+  @spec add_permissions(Relay.t, [Client.ip, ...])
     :: Relay.t
-  defp add_permissions(relay, peer_addrs, transaction_id) do
+  defp add_permissions(relay, peer_addrs) do
     new_permissions =
-        Enum.map peer_addrs, fn addr ->
-          %Permission{peer_address: addr, transaction_id: transaction_id,
-                      acked?: false}
-      end
-    %{relay | permissions: new_permissions ++ relay.permissions}
+      peer_addrs
+      |> Stream.map(fn peer_addr ->
+        timer_ref = Process.send_after self(),
+          {:permission_expired, peer_addr}, @permission_expiry
+      {peer_addr, timer_ref}
+      end)
+      |> Enum.into(%{})
+    permissions = Map.merge(relay.permissions, new_permissions,
+      fn _, old_ref, new_ref ->
+        _ = Process.cancel_timer old_ref
+        new_ref
+      end)
+    %{relay | permissions: permissions}
   end
 
   @spec has_permission?(state, peer :: Client.address) :: boolean
   defp has_permission?(state, {address, _port}) do
-    Enum.any?(state.relay.permissions, fn perm ->
-      perm.peer_address == address
+    Enum.any?(state.relay.permissions, fn {peer_addr, _} ->
+      peer_addr == address
     end)
   end
 
   @spec cancel_permission_timers(Relay.t) :: any
   defp cancel_permission_timers(relay) do
     relay.permissions
-    |> Enum.each(fn p -> Process.cancel_timer(p.timer_ref) end)
+    |> Enum.each(fn {_, timer_ref} ->
+      Process.cancel_timer(timer_ref)
+    end)
   end
 
   ## Subscriptions
