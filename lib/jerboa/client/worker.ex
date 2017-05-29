@@ -4,13 +4,16 @@ defmodule Jerboa.Client.Worker do
   use GenServer
 
   alias :gen_udp, as: UDP
+  alias Jerboa.Format
   alias Jerboa.Params
+  alias Jerboa.ChannelData
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Client.Relay
+  alias Jerboa.Client.Relay.Channel
   alias Jerboa.Client.Protocol
   alias Jerboa.Client.Protocol.{Binding, Allocate, Refresh,
-                                CreatePermission, Send, Data}
+                                CreatePermission, Send, Data, ChannelBind}
   alias Jerboa.Client.Transaction
 
   require Logger
@@ -19,6 +22,8 @@ defmodule Jerboa.Client.Worker do
              relay: %Relay{}, transactions: %{}, subscriptions: %{}]
 
   @permission_expiry 5 * 60 * 1_000 # 5 minutes
+  @channel_expiry 10 * 60 * 1_000 # 10 minutes
+  @channel_unlock_time 5 * 60 * 1_000 # 5 minutes
 
   @type socket :: UDP.socket
   @type subscribers :: %{sub_pid :: pid => sub_ref :: reference}
@@ -61,7 +66,7 @@ defmodule Jerboa.Client.Worker do
     {:noreply, add_transaction(state, transaction)}
   end
   def handle_call({:allocate, opts}, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       _ = Logger.debug "Allocation already present on the server, " <>
         "allocate request blocked"
       {:reply, {:ok, state.relay.address}, state}
@@ -74,7 +79,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call(:refresh, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       {id, request} = Refresh.request(state.credentials)
       _ = Logger.debug "Sending refresh request to the server"
       send(request, state.server, state.socket)
@@ -87,7 +92,7 @@ defmodule Jerboa.Client.Worker do
     end
   end
   def handle_call({:create_permission, peer_addrs}, from, state) do
-    if state.relay.address do
+    if Relay.active?(state.relay) do
       {id, request} = CreatePermission.request(state.credentials, peer_addrs)
       send(request, state.server, state.socket)
       context = %{peer_addrs: peer_addrs}
@@ -100,19 +105,46 @@ defmodule Jerboa.Client.Worker do
       {:reply, {:error, :no_allocation}, state}
     end
   end
+  def handle_call({:open_channel, peer}, from, state) do
+    with true <- Relay.active?(state.relay),
+         {:ok, number} <- Relay.gen_channel_number(state.relay, peer) do
+      {id, request} = ChannelBind.request(state.credentials, peer, number)
+      send(request, state.server, state.socket)
+      context = %{peer: peer, channel_number: number}
+      transaction = Transaction.new(from, id, channel_bind_response_handler(),
+        context)
+      {:noreply, state |> add_transaction(transaction)}
+    else
+      false ->
+        _ = Logger.debug "No allocation present on the server, " <>
+          "channel bind request blocked"
+        {:reply, {:error, :no_allocation}, state}
+      {:error, reason} = error ->
+        _ = Logger.debug "Couldn't generate channel number for peer " <>
+          "#{Client.format_address(peer)}, reason: #{inspect reason}"
+        {:reply, error, state}
+    end
+  end
   def handle_call({:send, peer, data}, _, state) do
     formatted_peer = Client.format_address(peer)
-    if has_permission?(state, peer) do
-      indication = Send.indication(peer, data)
-      _ = Logger.debug fn ->
-        "Sending data to #{formatted_peer} via send indication"
-      end
-      send(indication, state.server, state.socket)
-      {:reply, :ok, state}
-    else
-      _ = Logger.debug "No permission installed for #{formatted_peer}, " <>
-        "send indication blocked"
-      {:reply, {:error, :no_permission}, state}
+    has_permission? = Relay.has_permission?(state.relay, peer)
+    cond do
+      has_permission? and Relay.has_channel_bound?(state.relay, peer) ->
+        {:ok, channel} = Relay.get_channel_by_peer(state.relay, peer)
+        channel_data = Protocol.encode_channel_data(channel.number, data)
+        send(channel_data, state.server, state.socket)
+        {:reply, :ok, state}
+      has_permission? ->
+        indication = Send.indication(peer, data)
+        _ = Logger.debug fn ->
+          "Sending data to #{formatted_peer} via send indication"
+        end
+        send(indication, state.server, state.socket)
+        {:reply, :ok, state}
+      true ->
+        _ = Logger.debug "No permission installed for #{formatted_peer}, " <>
+          "send indication blocked"
+        {:reply, {:error, :no_permission}, state}
     end
   end
   def handle_call({:subscribe, sub_pid, peer_addr}, _, state) do
@@ -134,26 +166,57 @@ defmodule Jerboa.Client.Worker do
 
   def handle_info(:allocation_expired, state) do
     _ = Logger.debug "Allocation timed out"
-    cancel_permission_timers(state.relay)
+    _ = cancel_permission_timers(state.relay)
+    _ = cancel_channel_timers(state.relay)
     new_state = %{state | relay: %Relay{}}
     {:noreply, new_state}
   end
   def handle_info({:permission_expired, peer_addr}, state) do
     _ = Logger.debug fn -> "Permission for #{:inet.ntoa(peer_addr)} expired" end
-    new_relay = state.relay |> remove_permission(peer_addr)
+    new_relay = state.relay |> Relay.remove_permission(peer_addr)
+    {:noreply, %{state | relay: new_relay}}
+  end
+  def handle_info({:channel_expired, peer, channel_number},
+    state) do
+    _ = Logger.debug fn ->
+      "Channel ##{channel_number}, bound to #{Client.format_address(peer)}, " <>
+        "expired"
+    end
+    timer_ref = Process.send_after self(),
+      {:unlock_channel, peer, channel_number}, @channel_unlock_time
+    new_relay =
+      state.relay
+      |> Relay.remove_channel(peer, channel_number)
+      |> Relay.lock_channel(peer, channel_number)
+      |> Relay.put_lock_timer_ref(channel_number, timer_ref)
+    {:noreply, %{state | relay: new_relay}}
+  end
+  def handle_info({:unlock_channel, peer, channel_number}, state) do
+    _ = Logger.debug fn ->
+      "Unlocking channel ##{channel_number} and peer " <>
+        "#{Client.format_address(peer)}"
+    end
+    new_relay =
+      state.relay
+      |> Relay.unlock_channel(peer, channel_number)
+      |> Relay.remove_lock_timer_ref(channel_number)
     {:noreply, %{state | relay: new_relay}}
   end
   def handle_info({:udp, socket, addr, port, packet},
     %{socket: socket, server: {addr, port}} = state) do
-    params = Protocol.decode!(packet, state.credentials)
+    decoded = Protocol.decode!(packet, state.credentials)
     new_state =
-      case find_transaction(state, params.identifier) do
-        nil ->
-          _ = handle_peer_data(state, params)
+      with %Params{} <- decoded,
+           %Transaction{} = t <- find_transaction(state, decoded.identifier) do
+        state = handle_response(state, decoded, t)
+        remove_transaction(state, t.id)
+      else
+        %ChannelData{} ->
+          _ = handle_channel_data(state, decoded)
           state
-        transaction ->
-          state = handle_response(state, params, transaction)
-          remove_transaction(state, transaction.id)
+        _ ->
+          _ = handle_peer_data(state, decoded)
+          state
       end
     {:noreply, new_state}
   end
@@ -201,7 +264,7 @@ defmodule Jerboa.Client.Worker do
     end
     if lifetime do
       new_ref = Process.send_after self(), :allocation_expired, lifetime * 1_000
-      %{relay | timer_ref: new_ref}
+      Relay.put_timer_ref(relay, new_ref)
     else
       relay
     end
@@ -217,9 +280,19 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
+  @spec handle_channel_data(state, ChannelData.t) :: any
+  defp handle_channel_data(state, %{channel_number: number, data: data}) do
+    case Relay.get_channel_by_number(state.relay, number) do
+      {:ok, channel} ->
+        maybe_notify_subscribers(state, channel.peer, data)
+      :error ->
+        _ = Logger.debug "Received ChannelData message on non-existing channel"
+    end
+  end
+
   @spec maybe_notify_subscribers(state, Client.address, binary) :: any
   defp maybe_notify_subscribers(state, peer, data) do
-    if has_permission?(state, peer) do
+    if Relay.has_permission?(state.relay, peer) do
       _ = Logger.debug fn ->
         "Received data from peer: #{Client.format_address(peer)}"
       end
@@ -262,14 +335,14 @@ defmodule Jerboa.Client.Worker do
   defp binding_response_handler do
     fn params, creds, relay, _ ->
       reply = Binding.eval_response(params)
-      case reply do
+      _ = case reply do
         {:ok, mapped_address} ->
-          _ = Logger.debug fn ->
+          Logger.debug fn ->
             "Received success binding response, mapped address: " <>
               Client.format_address(mapped_address)
           end
         {:error, reason} ->
-          _ = Logger.debug fn ->
+          Logger.debug fn ->
             "Error when receiving binding response, reason: #{inspect reason}"
           end
       end
@@ -324,8 +397,8 @@ defmodule Jerboa.Client.Worker do
 
   defp init_new_relay(old_relay, relayed_address, lifetime) do
     old_relay
-    |> Map.put(:address, relayed_address)
-    |> Map.put(:lifetime, lifetime)
+    |> Relay.put_address(relayed_address)
+    |> Relay.put_lifetime(lifetime)
     |> update_allocation_timer()
   end
 
@@ -340,7 +413,7 @@ defmodule Jerboa.Client.Worker do
           end
           new_relay =
             relay
-            |> Map.put(:lifetime, lifetime)
+            |> Relay.put_lifetime(lifetime)
             |> update_allocation_timer()
           {:ok, creds, new_relay}
         {:error, reason, new_creds} ->
@@ -374,10 +447,27 @@ defmodule Jerboa.Client.Worker do
     end
   end
 
-  @spec remove_permission(Relay.t, Client.ip) :: Relay.t
-  defp remove_permission(relay, peer_addr) do
-    permissions = Map.delete(relay.permissions, peer_addr)
-    %{relay | permissions: permissions}
+  @spec channel_bind_response_handler :: Transaction.handler
+  defp channel_bind_response_handler do
+    fn params, creds, relay, %{peer: peer, channel_number: channel_number} ->
+      case ChannelBind.eval_response(params, creds) do
+        :ok ->
+          _ = Logger.debug "Received success channel bind response"
+          {peer_addr, _} = peer
+          new_relay =
+            relay
+            |> add_permissions([peer_addr])
+            |> add_channel(peer, channel_number)
+          {:ok, creds, new_relay}
+        {:error, reason, new_creds} ->
+          _ = Logger.debug fn ->
+            "Error when receiving create permission response, " <>
+              "reason: #{inspect reason}"
+          end
+          reply = {:error, reason}
+          {reply, new_creds, relay}
+      end
+    end
   end
 
   @spec add_permissions(Relay.t, [Client.ip, ...])
@@ -396,22 +486,39 @@ defmodule Jerboa.Client.Worker do
         _ = Process.cancel_timer old_ref
         new_ref
       end)
-    %{relay | permissions: permissions}
-  end
-
-  @spec has_permission?(state, peer :: Client.address) :: boolean
-  defp has_permission?(state, {address, _port}) do
-    Enum.any?(state.relay.permissions, fn {peer_addr, _} ->
-      peer_addr == address
-    end)
+    Relay.put_permissions(relay, permissions)
   end
 
   @spec cancel_permission_timers(Relay.t) :: any
   defp cancel_permission_timers(relay) do
-    relay.permissions
-    |> Enum.each(fn {_, timer_ref} ->
+    relay
+    |> Relay.get_permission_timers()
+    |> Enum.each(fn timer_ref ->
       Process.cancel_timer(timer_ref)
     end)
+  end
+
+  @spec add_channel(Relay.t, Client.address, Format.channel_number) :: Relay.t
+  defp add_channel(relay, peer, channel_number) do
+    timer_ref = Process.send_after self(),
+      {:channel_expired, peer, channel_number}, @channel_expiry
+    channel = %Channel{peer: peer, number: channel_number,
+                       timer_ref: timer_ref}
+    update_channel = fn c ->
+      _ = Process.cancel_timer(c.timer_ref)
+      channel
+    end
+    Relay.put_channel(relay, channel, update_channel)
+  end
+
+  @spec cancel_channel_timers(Relay.t) :: any
+  defp cancel_channel_timers(relay) do
+    for channel <- Relay.get_channels(relay) do
+      _ = Process.cancel_timer channel.timer_ref
+    end
+    for timer_ref <- Relay.get_lock_timer_refs(relay) do
+      _ = Process.cancel_timer timer_ref
+    end
   end
 
   ## Subscriptions

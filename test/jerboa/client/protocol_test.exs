@@ -1,7 +1,7 @@
 defmodule Jerboa.Client.ProtocolTest do
   use ExUnit.Case
 
-  alias Jerboa.{Params, Format}
+  alias Jerboa.{Params, Format, ChannelData}
   alias Jerboa.Client.Protocol
   alias Jerboa.Format.Body.Attribute.{Nonce, ErrorCode}
   alias Jerboa.Test.Helper.Params, as: PH
@@ -111,5 +111,15 @@ defmodule Jerboa.Client.ProtocolTest do
       assert {:error, error, creds} ==
         Protocol.eval_failure(params, creds)
     end
+  end
+
+  test "encode_channel_data/2 encodes a channel data message" do
+    channel_number = 0x4001
+    data = "alicehasacat"
+
+    encoded = Protocol.encode_channel_data(channel_number, data)
+
+    assert {:ok, %ChannelData{channel_number: channel_number, data: data}} ==
+      Format.decode(encoded)
   end
 end

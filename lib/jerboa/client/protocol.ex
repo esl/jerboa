@@ -4,6 +4,7 @@ defmodule Jerboa.Client.Protocol do
   alias Jerboa.Client
   alias Jerboa.Client.Credentials
   alias Jerboa.Params
+  alias Jerboa.ChannelData
   alias Jerboa.Format
   alias Jerboa.Format.Body.Attribute.{Username, Realm, Nonce, ErrorCode}
 
@@ -14,13 +15,20 @@ defmodule Jerboa.Client.Protocol do
 
   ## API
 
+  @spec encode_channel_data(Format.channel_number, binary) :: binary
+  def encode_channel_data(number, data) do
+    %ChannelData{channel_number: number, data: data}
+    |> Format.encode()
+  end
+
   @spec encode_request(Params.t, Credentials.t) :: request
   def encode_request(params, creds) do
     opts = Credentials.to_decode_opts(creds)
     {params.identifier, Format.encode(params, opts)}
   end
 
-  @spec decode!(packet :: binary, Credentials.t) :: Params.t | no_return
+  @spec decode!(packet :: binary, Credentials.t)
+    :: Params.t | ChannelData.t | no_return
   def decode!(packet, creds) do
     opts = Credentials.to_decode_opts(creds)
     Format.decode!(packet, opts)
