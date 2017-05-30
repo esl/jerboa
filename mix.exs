@@ -3,7 +3,7 @@ defmodule Jerboa.Mixfile do
 
   def project do
     [app: :jerboa,
-     version: "0.2.0",
+     version: "0.3.0",
      name: "Jerboa",
      description: "STUN/TURN encoder, decoder and client library",
      source_url: "https://github.com/esl/jerboa",
