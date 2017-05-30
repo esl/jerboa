@@ -72,6 +72,14 @@ defmodule Jerboa.Client do
   peer which you've not installed permissions for, the data will never appear in subscribed
   process' mailbox.
 
+  ### Channels
+
+  If you're exchanging a lot of data with one of the peers, you might want to use
+  channels mechanism. Data sent throught the channel carries smaller message
+  header, so throughput of user data increases. Note that unlike permissions,
+  channels must be bound to both IP address and specific port number. To learn
+  more see `open_channel/2`.
+
   ## Logging
 
   Client logs progress messages with `:debug` level, so Elixir's Logger needs to
