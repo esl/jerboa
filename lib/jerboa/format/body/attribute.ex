@@ -4,7 +4,7 @@ defmodule Jerboa.Format.Body.Attribute do
   """
 
   alias Jerboa.Format.ComprehensionError
-  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Data, Nonce,
+  alias Jerboa.Format.Body.Attribute.{XORMappedAddress, Lifetime, Bandwidth, Data, Nonce,
                                       Username, Realm, ErrorCode, EvenPort,
                                       XORRelayedAddress, XORPeerAddress,
                                       RequestedTransport, DontFragment,
