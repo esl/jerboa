@@ -22,7 +22,7 @@ defmodule Jerboa.Format.Body.Attribute.Bandwidth do
 
   defimpl Encoder do
     alias Jerboa.Format.Body.Attribute.Bandwidth
-    @type_code 0x000D
+    @type_code 0x0010
 
     @spec type_code(Bandwidth.t) :: integer
     def type_code(_), do: @type_code

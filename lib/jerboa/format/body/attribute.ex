@@ -29,7 +29,7 @@ defmodule Jerboa.Format.Body.Attribute do
     def decode(type, value, meta)
   end
 
-  @known_attrs [XORMappedAddress, Lifetime, Data, Nonce, Username, Realm,
+  @known_attrs [XORMappedAddress, Lifetime, Bandwidth, Data, Nonce, Username, Realm,
                 ErrorCode, XORRelayedAddress, XORPeerAddress,
                 RequestedTransport, DontFragment, EvenPort, ReservationToken,
                 ChannelNumber]
