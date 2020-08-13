@@ -441,7 +441,7 @@ defmodule Jerboa.Format.MessageIntegrity.FormatError do
   defexception [:message]
 
   def exception(_opts \\ []) do
-    %__MODULE__{message: "Invalid value length or declared length. MESSAGE-INTEGRIY value " <>
+    %__MODULE__{message: "Invalid value length or declared length. MESSAGE-INTEGRITY value " <>
       "must be 20 bytes long"}
   end
 end
