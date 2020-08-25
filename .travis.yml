@@ -16,14 +16,14 @@ after_script:
 elixir:
   - 1.4.0
 otp_release:
-  - 19.2
+  - 19.3
   - 18.3
 env:
   - PRESET=test
 
 matrix:
   include:
-    - otp_release: 19.2
+    - otp_release: 19.3
       elixir: 1.4.0
       env: PRESET=dialyzer
 
