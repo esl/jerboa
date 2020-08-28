@@ -22,7 +22,7 @@ defmodule Jerboa.Params do
   respective RFCs
   * `signed?` indicates wheter STUN message was signed with MESSAGE-INTEGRITY
     attribute - it isn't important when encoding a message
-  * `verified?` - indicates wheter MESSAGE-INTEGRIY from STUN message was
+  * `verified?` - indicates wheter MESSAGE-INTEGRITY from STUN message was
     successfully verified. Same as `signed?`, it's only relevant when decoding
     messages. Note that messages which are `verified?` are also `signed?`, but not
     the other way around.
